@@ -4,7 +4,7 @@ The default output device is captured through its WASAPI loopback endpoint (pyau
 native rate/channels (usually 48 kHz stereo), downmixed to mono float32, resampled with soxr to
 audio.sample_rate and cut into audio.chunk_s chunks that repeat the last audio.overlap_s of the
 previous chunk, so phrases are not cut at chunk boundaries. Each chunk gets an RMS level and a cheap
-speech flag (energy + zero-crossing rate per frame); is_speech=False chunks must not go to ASR
+speech flag (energy + zero-crossing rate per frame, or simply loud); is_speech=False chunks must not go to ASR
 (saves power, and Whisper hallucinates text on silence).
 
 Audio stays in RAM only: nothing is ever written to disk, not even in debug mode.
@@ -53,6 +53,7 @@ class AudioChunk:
     rms: float
     is_speech: bool
     source: str = SOURCE_LOOPBACK      # loopback | mic
+    voiced_fraction: float = 0.0       # fraction of frames that passed the voiced check
 
     @property
     def duration_s(self) -> float:
@@ -109,18 +110,21 @@ def zero_crossing_rate(x: np.ndarray) -> float:
 
 @dataclass
 class SpeechGate:
-    """Chunk is speech if its RMS >= silence_rms and enough frames look voiced
-    (frame RMS >= silence_rms and ZCR within [zcr_min, zcr_max])."""
+    """Chunk is speech if RMS >= silence_rms AND (voiced fraction >= min_voiced OR RMS >= loud_rms).
+    A frame is voiced if its RMS >= silence_rms and its ZCR is within [zcr_min, zcr_max]. Narrowband
+    call audio (e.g. WhatsApp at -30 dBFS) can fail the voiced check, so loud chunks pass anyway."""
     silence_rms: float = 0.005
+    loud_rms: float = 0.015            # ~ -36 dBFS
     zcr_min: float = 0.01
     zcr_max: float = 0.25
-    min_voiced: float = 0.1            # fraction of voiced frames
+    min_voiced: float = 0.03           # fraction of voiced frames
     frame_ms: int = 30
 
     @classmethod
     def from_config(cls, audio: Mapping[str, Any]) -> "SpeechGate":
         zcr = audio.get("vad_zcr") or (cls.zcr_min, cls.zcr_max)
         return cls(silence_rms=float(audio.get("silence_rms", cls.silence_rms)),
+                   loud_rms=float(audio.get("loud_rms", cls.loud_rms)),
                    zcr_min=float(zcr[0]), zcr_max=float(zcr[1]),
                    min_voiced=float(audio.get("vad_min_voiced", cls.min_voiced)),
                    frame_ms=int(audio.get("vad_frame_ms", cls.frame_ms)))
@@ -137,11 +141,12 @@ class SpeechGate:
         voiced = (e >= self.silence_rms) & (zcr >= self.zcr_min) & (zcr <= self.zcr_max)
         return float(voiced.mean())
 
-    def __call__(self, x: np.ndarray, sample_rate: int) -> tuple[float, bool]:
+    def __call__(self, x: np.ndarray, sample_rate: int) -> tuple[float, float, bool]:
+        """-> (rms, voiced_fraction, is_speech)"""
         level = rms(x)
-        if level < self.silence_rms:
-            return level, False
-        return level, self.voiced_fraction(x, sample_rate) >= self.min_voiced
+        voiced = self.voiced_fraction(x, sample_rate)
+        speech = level >= self.silence_rms and (voiced >= self.min_voiced or level >= self.loud_rms)
+        return level, voiced, speech
 
 
 class Chunker:
@@ -216,8 +221,9 @@ class Chunker:
 
     def _emit(self, ts_end: float) -> AudioChunk:
         samples = self._buf.copy()
-        level, speech = self.gate(samples, self.sample_rate)
-        chunk = AudioChunk(ts_end - self.n_chunk / self.sample_rate, ts_end, samples, level, speech, self.source)
+        level, voiced, speech = self.gate(samples, self.sample_rate)
+        chunk = AudioChunk(ts_end - self.n_chunk / self.sample_rate, ts_end, samples, level, speech,
+                           self.source, voiced)
         if self.n_keep:
             self._buf[:self.n_keep] = self._buf[self.n_chunk - self.n_keep:]
         self._n = self.n_keep
@@ -558,11 +564,13 @@ def meter(seconds: float | None, mic: bool, chunk_s: float | None) -> int:
 
     def on_chunk(c: AudioChunk) -> None:
         print(f"{time.strftime('%H:%M:%S', time.localtime(c.ts_start))} {c.source:<8} "
-              f"{c.duration_s:4.1f}s rms={c.rms:.4f} {_bar(c.rms)} {'SPEECH' if c.is_speech else 'silent'}",
+              f"{c.duration_s:4.1f}s rms={c.rms:.4f} {_bar(c.rms)} voiced={c.voiced_fraction:4.0%} "
+              f"{'SPEECH' if c.is_speech else 'silent'}",
               flush=True)
 
     cap = AudioCapture(cfg, on_chunk)
-    print(f"metering (chunk {cap.chunk_s:g} s, overlap {cap.overlap_s:g} s, silence_rms {cap.gate.silence_rms:g}); "
+    print(f"metering (chunk {cap.chunk_s:g} s, overlap {cap.overlap_s:g} s, silence_rms {cap.gate.silence_rms:g}, "
+          f"loud_rms {cap.gate.loud_rms:g}, min voiced {cap.gate.min_voiced:.0%}); "
           "Ctrl+C to stop", flush=True)
     cap.start()
     try:

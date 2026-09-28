@@ -1,0 +1,165 @@
+[
+  {
+    "ts": "2026-09-28T23:41:34+0530",
+    "job_id": "j57e1nvrp",
+    "kind": "profile",
+    "model": "det_static",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j57e1nvrp/",
+    "status": "SUCCESS",
+    "inference_ms": 14.139,
+    "peak_memory_mb": 53.3,
+    "ops": {
+      "NPU": 201,
+      "GPU": 0,
+      "CPU": 0
+    }
+  },
+  {
+    "ts": "2026-09-28T23:41:36+0530",
+    "job_id": "jp4y64jlp",
+    "kind": "inference",
+    "model": "det_static",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp4y64jlp/",
+    "status": "SUCCESS",
+    "max_abs_diff": [
+      0.2507059872150421
+    ]
+  },
+  {
+    "ts": "2026-09-28T23:41:45+0530",
+    "job_id": "jpxl8re9p",
+    "kind": "profile",
+    "model": "rec_static_320",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpxl8re9p/",
+    "status": "SUCCESS",
+    "inference_ms": 32.41,
+    "peak_memory_mb": 62.2,
+    "ops": {
+      "NPU": 228,
+      "GPU": 0,
+      "CPU": 0
+    }
+  },
+  {
+    "ts": "2026-09-28T23:41:47+0530",
+    "job_id": "jgnzdqrmg",
+    "kind": "inference",
+    "model": "rec_static_320",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jgnzdqrmg/",
+    "status": "SUCCESS",
+    "max_abs_diff": [
+      0.0211295485496521
+    ],
+    "text_equal": true,
+    "remote_text": "Enter 0TP 482913",
+    "local_text": "Enter 0TP 482913"
+  },
+  {
+    "ts": "2026-09-28T23:41:55+0530",
+    "job_id": "jprlmd1ep",
+    "kind": "profile",
+    "model": "rec_static_640",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jprlmd1ep/",
+    "status": "SUCCESS",
+    "inference_ms": 64.169,
+    "peak_memory_mb": 97.2,
+    "ops": {
+      "NPU": 228,
+      "GPU": 0,
+      "CPU": 0
+    }
+  },
+  {
+    "ts": "2026-09-28T23:41:57+0530",
+    "job_id": "jp2rqd3mg",
+    "kind": "inference",
+    "model": "rec_static_640",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp2rqd3mg/",
+    "status": "SUCCESS",
+    "max_abs_diff": [
+      0.027390778064727783
+    ],
+    "text_equal": true,
+    "remote_text": "Enter 0TP 482913",
+    "local_text": "Enter 0TP 482913"
+  },
+  {
+    "ts": "2026-09-28T23:42:07+0530",
+    "job_id": "jpyok2v45",
+    "kind": "profile",
+    "model": "rec_static_1280",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpyok2v45/",
+    "status": "SUCCESS",
+    "inference_ms": 107.028,
+    "peak_memory_mb": 97.2,
+    "ops": {
+      "NPU": 228,
+      "GPU": 0,
+      "CPU": 0
+    }
+  },
+  {
+    "ts": "2026-09-28T23:42:11+0530",
+    "job_id": "jp8edrw8p",
+    "kind": "inference",
+    "model": "rec_static_1280",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp8edrw8p/",
+    "status": "SUCCESS",
+    "max_abs_diff": [
+      0.03494572639465332
+    ],
+    "text_equal": true,
+    "remote_text": "Enter 0TP 482913",
+    "local_text": "Enter 0TP 482913"
+  },
+  {
+    "ts": "2026-09-28T23:42:22+0530",
+    "job_id": "jpxl8rd9p",
+    "kind": "profile",
+    "model": "whisper_base_encoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpxl8rd9p/",
+    "status": "SUCCESS",
+    "inference_ms": 45.9,
+    "peak_memory_mb": 95.0,
+    "ops": {
+      "NPU": 556,
+      "GPU": 0,
+      "CPU": 0
+    }
+  },
+  {
+    "ts": "2026-09-28T23:42:25+0530",
+    "job_id": "j5m01kdqg",
+    "kind": "profile",
+    "model": "whisper_base_decoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j5m01kdqg/",
+    "status": "SUCCESS",
+    "inference_ms": 3.558,
+    "peak_memory_mb": 174.2,
+    "ops": {
+      "NPU": 975,
+      "GPU": 0,
+      "CPU": 0
+    }
+  }
+]

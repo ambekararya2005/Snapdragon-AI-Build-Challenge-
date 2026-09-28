@@ -85,13 +85,26 @@ audio:                     # capture/audio.py: system audio (WASAPI loopback) ->
   sample_rate: 16000       # ASR input rate; the device's native rate is resampled to this
   chunk_s: 5               # chunk length in seconds
   overlap_s: 1.0           # each chunk repeats the last overlap_s of the previous one (phrases not cut)
+  # is_speech = rms >= silence_rms AND (voiced fraction >= vad_min_voiced OR rms >= loud_rms)
   silence_rms: 0.005       # chunks below this RMS (full scale 1.0, ~ -46 dBFS) are is_speech=False, not sent to ASR
-  vad_frame_ms: 30         # speech check: a frame is voiced if RMS >= silence_rms and its zero-crossing
+  loud_rms: 0.015          # ~ -36 dBFS: speech even if the voiced check fails (narrowband call audio)
+  vad_frame_ms: 30         # a frame is voiced if RMS >= silence_rms and its zero-crossing
   vad_zcr: [0.01, 0.25]    #   rate is in this range (white noise ~0.5)
-  vad_min_voiced: 0.1      #   and is_speech needs at least this fraction of voiced frames
+  vad_min_voiced: 0.03     # fraction of voiced frames needed (below loud_rms)
   capture_mic: false       # also capture the default microphone as a separate source="mic" stream
   device_check_s: 10       # check for a new default output/input device (reopen streams on change)
   retry_s: 5               # retry interval after device errors
+
+asr:                       # models/asr.py (F4); transcripts stay in RAM
+  backend: aihub_whisper   # aihub_whisper (ONNX via models.runtime: qnn/dml/cpu) | faster_whisper (dev-only CPU fallback)
+  model: whisper_base      # weights/asr/<model>/ from scripts/export_whisper.py (whisper_tiny if base is too slow)
+  language: en
+  max_tokens: 96           # decoded tokens per chunk (5 s of speech is ~15-40 tokens; model window is 200)
+  rolling_s: 180           # rolling transcript kept in RAM
+  max_ngram_repeats: 4     # drop outputs where the same 1-4 word n-gram repeats this many times in a row
+  drop_phrases: ["thank you for watching", "thanks for watching", "subscribe", "you"]   # Whisper silence phrases
+  faster_whisper_model: base.en   # faster_whisper backend only
+  faster_whisper_compute: int8
 
 screen_classifier:         # detect/screen_classifier.py; keywords/weights in detect/lexicons/screen.yaml
   lexicon: detect/lexicons/screen.yaml

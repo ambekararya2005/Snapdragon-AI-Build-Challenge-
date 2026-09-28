@@ -90,5 +90,129 @@
       "profile",
       "inference"
     ]
+  },
+  {
+    "ts": "2026-09-28T23:14:40+0530",
+    "kind": "profile",
+    "job_id": "j57e1nvrp",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j57e1nvrp/",
+    "model": "det_static",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "j5m019r9g"
+  },
+  {
+    "ts": "2026-09-28T23:14:48+0530",
+    "kind": "inference",
+    "job_id": "jp4y64jlp",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp4y64jlp/",
+    "model": "det_static",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "j5m019r9g"
+  },
+  {
+    "ts": "2026-09-28T23:14:51+0530",
+    "kind": "profile",
+    "job_id": "jpxl8re9p",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpxl8re9p/",
+    "model": "rec_static_320",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jgnzd12qg"
+  },
+  {
+    "ts": "2026-09-28T23:14:57+0530",
+    "kind": "inference",
+    "job_id": "jgnzdqrmg",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jgnzdqrmg/",
+    "model": "rec_static_320",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jgnzd12qg"
+  },
+  {
+    "ts": "2026-09-28T23:15:01+0530",
+    "kind": "profile",
+    "job_id": "jprlmd1ep",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jprlmd1ep/",
+    "model": "rec_static_640",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jp2rqo8qg"
+  },
+  {
+    "ts": "2026-09-28T23:15:07+0530",
+    "kind": "inference",
+    "job_id": "jp2rqd3mg",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp2rqd3mg/",
+    "model": "rec_static_640",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jp2rqo8qg"
+  },
+  {
+    "ts": "2026-09-28T23:15:09+0530",
+    "kind": "profile",
+    "job_id": "jpyok2v45",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpyok2v45/",
+    "model": "rec_static_1280",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jpyok8el5"
+  },
+  {
+    "ts": "2026-09-28T23:15:16+0530",
+    "kind": "inference",
+    "job_id": "jp8edrw8p",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp8edrw8p/",
+    "model": "rec_static_1280",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "parent_job_id": "jpyok8el5"
+  },
+  {
+    "ts": "2026-09-28T23:33:44+0530",
+    "kind": "compile",
+    "job_id": "j57e1n7rp",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j57e1n7rp/",
+    "model": "whisper_base_encoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "source": "qai_hub_models export",
+    "wants": []
+  },
+  {
+    "ts": "2026-09-28T23:33:44+0530",
+    "kind": "compile",
+    "job_id": "jp4y649lp",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp4y649lp/",
+    "model": "whisper_base_decoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "source": "qai_hub_models export",
+    "wants": []
+  },
+  {
+    "ts": "2026-09-28T23:33:44+0530",
+    "kind": "profile",
+    "job_id": "jpxl8rd9p",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpxl8rd9p/",
+    "model": "whisper_base_encoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "source": "qai_hub_models export",
+    "wants": []
+  },
+  {
+    "ts": "2026-09-28T23:33:44+0530",
+    "kind": "profile",
+    "job_id": "j5m01kdqg",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j5m01kdqg/",
+    "model": "whisper_base_decoder",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "source": "qai_hub_models export",
+    "wants": []
   }
 ]

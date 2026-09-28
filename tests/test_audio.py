@@ -61,26 +61,51 @@ def test_streaming_resampler_matches_one_shot():
 
 # ---------------------------------------------------------------- speech gate
 
-def test_gate_tone_is_speech_noise_and_silence_are_not():
-    gate = A.SpeechGate(silence_rms=0.005)
-    level, speech = gate(sine(200, 5), SR)                     # voiced-like: low ZCR, enough energy
-    assert speech and level == pytest.approx(0.1 / np.sqrt(2), rel=0.01)
-    assert gate(np.zeros(5 * SR, np.float32), SR) == (0.0, False)
-    assert gate(sine(200, 5, amp=0.002), SR)[1] is False      # below silence_rms
-    assert gate(noise(5, amp=0.1), SR)[1] is False            # loud but ZCR ~0.5: not voiced
+def narrowband_speech(seconds, rms_target, sr=SR, seed=1):
+    """Call-like audio: 1800-3400 Hz band noise (upper telephone band) with a 4 Hz syllable envelope.
+    Its ZCR is above the voiced range, like fricative-heavy narrowband speech on a WhatsApp call."""
+    x = np.random.default_rng(seed).standard_normal(int(seconds * sr))
+    spec = np.fft.rfft(x)
+    f = np.fft.rfftfreq(x.size, 1 / sr)
+    spec[(f < 1800) | (f > 3400)] = 0
+    x = np.fft.irfft(spec, x.size) * (0.55 + 0.45 * np.sin(2 * np.pi * 4 * np.arange(x.size) / sr))
+    return (x * rms_target / np.sqrt(np.mean(x ** 2))).astype(np.float32)
+
+
+def test_gate_tone_is_speech_silence_and_low_noise_are_not():
+    gate = A.SpeechGate(silence_rms=0.005, loud_rms=0.015)
+    level, voiced, speech = gate(sine(200, 5), SR)             # voiced-like: low ZCR, enough energy
+    assert speech and voiced > 0.9 and level == pytest.approx(0.1 / np.sqrt(2), rel=0.01)
+    assert gate(np.zeros(5 * SR, np.float32), SR) == (0.0, 0.0, False)
+    assert gate(sine(200, 5, amp=0.002), SR)[2] is False      # below silence_rms
+    level, voiced, speech = gate(noise(5, amp=0.008), SR)     # above silence, below loud, ZCR ~0.5
+    assert A.SpeechGate().silence_rms < level < 0.015 and voiced == 0.0 and speech is False
+
+
+def test_gate_loud_narrowband_speech_passes():
+    gate = A.SpeechGate(silence_rms=0.005, loud_rms=0.015)
+    loud = narrowband_speech(5, rms_target=10 ** (-30 / 20))  # -30 dBFS, like the real call
+    level, voiced, speech = gate(loud, SR)
+    assert voiced < gate.min_voiced                            # voiced check alone would miss it
+    assert speech and level == pytest.approx(0.0316, rel=0.01)
+    quiet = narrowband_speech(5, rms_target=0.008)             # same signal below loud_rms
+    assert gate(quiet, SR)[2] is False
 
 
 def test_gate_needs_min_voiced_fraction():
-    gate = A.SpeechGate(silence_rms=0.005, min_voiced=0.1)
-    short = np.concatenate([sine(200, 0.3), np.zeros(int(4.7 * SR), np.float32)])   # 6% voiced
-    longer = np.concatenate([sine(200, 1.0), np.zeros(4 * SR, np.float32)])         # 20% voiced
-    assert gate(short, SR)[1] is False
-    assert gate(longer, SR)[1] is True
+    gate = A.SpeechGate(silence_rms=0.005, loud_rms=0.015, min_voiced=0.03)
+    short = np.concatenate([sine(200, 0.1), np.zeros(int(4.9 * SR), np.float32)])   # 2% voiced, rms 0.01
+    longer = np.concatenate([sine(200, 0.3), np.zeros(int(4.7 * SR), np.float32)])  # 6% voiced
+    assert gate(short, SR)[2] is False
+    assert gate(longer, SR)[2] is True
 
 
 def test_gate_from_config():
-    g = A.SpeechGate.from_config({"silence_rms": 0.02, "vad_zcr": [0.05, 0.3], "vad_min_voiced": 0.2})
-    assert (g.silence_rms, g.zcr_min, g.zcr_max, g.min_voiced) == (0.02, 0.05, 0.3, 0.2)
+    g = A.SpeechGate.from_config({"silence_rms": 0.02, "loud_rms": 0.05, "vad_zcr": [0.05, 0.3],
+                                  "vad_min_voiced": 0.2})
+    assert (g.silence_rms, g.loud_rms, g.zcr_min, g.zcr_max, g.min_voiced) == (0.02, 0.05, 0.05, 0.3, 0.2)
+    d = A.SpeechGate.from_config({})
+    assert (d.loud_rms, d.min_voiced) == (0.015, 0.03)
     assert A.zero_crossing_rate(noise(1)) > 0.4 and A.zero_crossing_rate(sine(200, 1)) < 0.03
 
 
@@ -120,11 +145,12 @@ def test_zero_overlap_and_invalid_overlap():
 
 def test_chunk_speech_flags():
     ck = A.Chunker(SR, chunk_s=5, overlap_s=1.0, gate=A.SpeechGate(silence_rms=0.005))
-    x = np.concatenate([sine(200, 5), np.zeros(8 * SR, np.float32), noise(4)])
+    x = np.concatenate([sine(200, 5), np.zeros(8 * SR, np.float32), noise(4, amp=0.008)])
     chunks = ck.push(x, ts_end=17.0)
-    # tone | 1 s tone overlap + silence (still speech: phrase tail) | silence | 1 s silence + noise
+    # tone | 1 s tone overlap + silence (still speech: phrase tail) | silence | 1 s silence + low noise
     assert [c.is_speech for c in chunks] == [True, True, False, False]
-    assert chunks[2].rms == 0.0 and chunks[3].rms > 0.05
+    assert chunks[2].rms == 0.0 and 0.005 < chunks[3].rms < 0.015
+    assert chunks[0].voiced_fraction > 0.9 and chunks[3].voiced_fraction == 0.0
 
 
 def test_idle_tick_flushes_tail_padded_with_silence():

@@ -28,3 +28,16 @@ soxr==1.1.0               # audio resampling (native rate -> 16 kHz)
 # It pins protobuf<7 (installs protobuf 6.31.1); onnx 1.18.0 works with that.
 # qai-hub-models is deliberately NOT here: it pulls in torch and may upgrade onnx/numpy.
 qai-hub==0.55.0
+
+# Whisper export (scripts/export_whisper.py) uses a SEPARATE venv so torch never enters .venv and onnx
+# stays 1.18.0 here:
+#   py -3.11 -m venv .venv-aihub
+#   .\.venv-aihub\Scripts\python.exe -m pip install "qai-hub-models[whisper-base]"   # 0.63.0: torch 2.11, transformers 4.56.2
+# The runtime (models/asr.py) needs only numpy + onnxruntime + the files it writes to weights/asr/.
+
+# Dev-only ASR fallback (asr.backend: faster_whisper), NOT pinned here and not the NPU path.
+# faster-whisper depends on plain onnxruntime (for its VAD), which would clash with onnxruntime-directml,
+# so install it without deps and add its other deps by hand:
+#   pip install --no-deps faster-whisper==1.2.1
+#   pip install ctranslate2==4.8.2 tokenizers==0.23.2 av==18.1.0 huggingface_hub==1.33.0
+#   .\.venv-aihub\Scripts\python.exe scripts\export_whisper.py --faster-whisper base.en   # weights, once
