@@ -1,0 +1,142 @@
+# Screen classifier lexicon (detect/screen_classifier.py). Loaded once.
+#
+# Matching: terms and screen text are both canonicalised (fold_confusables -> lowercase -> l->i,
+# spaces collapsed). A term matches on word boundaries in the canonical text, and terms whose
+# letters-only form is >= screen_classifier.compact_min_len chars also match in a space-stripped
+# copy (OCR drops spaces: "DEMO-NOTAREALBANK").
+#
+# Scoring: each distinct term hit adds its group weight (capped per group by max_hits); pattern hits
+# add their weight once; combos add their weight when all their parts are present. Label/tactic
+# score = min(1, sum). Evidence ids are "<label>:<group>:<term-slug>", "pattern:<name>",
+# "combo:<id>" - lexicon ids only, never screen text.
+
+labels:
+  bank:
+    groups:
+      netbanking:
+        weight: 0.25
+        max_hits: 4
+        terms: [net banking, netbanking, internet banking, beneficiary, add payee, add beneficiary,
+                fund transfer, funds transfer, transfer funds, neft, rtgs, imps, ifsc, ifsc code,
+                account balance, available balance, account number, savings account, current account,
+                mini statement, account statement]
+      bank_names:
+        weight: 0.2
+        max_hits: 2
+        terms: [state bank of india, sbi, onlinesbi, yono, hdfc bank, hdfc netbanking, icici bank, icici,
+                axis bank, kotak, kotak mahindra, pnb, punjab national bank, bank of baroda, canara bank,
+                union bank, yes bank, idfc first, indusind, federal bank, netbanking login]
+      kyc_portal:
+        weight: 0.15
+        max_hits: 3
+        terms: [kyc, update kyc, re-kyc, customer id, registered mobile number, pan card, aadhaar,
+                cif number, internet banking user id]
+    patterns: {ifsc: 0.35, amount: 0.1, account_number: 0.15}
+
+  upi_payment:
+    groups:
+      upi:
+        weight: 0.3
+        max_hits: 3
+        terms: [upi, vpa, upi id, pay to, scan and pay, scan & pay, bhim, google pay, gpay, phonepe,
+                paytm, amazon pay, pay using upi, collect request]
+      checkout:
+        weight: 0.2
+        max_hits: 3
+        terms: [pay now, amount payable, total payable, payment options, place your order, proceed to pay,
+                razorpay, payu, billdesk, ccavenue, payment gateway, net banking, debit card, credit card,
+                cash on delivery, order total]
+    patterns: {upi_id: 0.4, amount: 0.15}
+
+  otp_card:
+    groups:
+      otp_entry:           # an OTP is being asked for
+        weight: 0.5
+        max_hits: 2
+        terms: [enter otp, otp sent, otp has been sent, resend otp, enter verification code,
+                enter the otp, otp received]
+      otp_mention:         # "OTP" merely mentioned (also in advice/news: "never share OTP")
+        weight: 0.3
+        max_hits: 1
+        terms: [otp, one time password, one-time password, verification code]
+      card:
+        weight: 0.25
+        max_hits: 3
+        terms: [cvv, cvv2, card number, expiry, expiry date, valid thru, mm/yy, name on card,
+                atm pin, upi pin, mpin, enter pin, enter your pin, card details]
+    patterns: {card_number: 0.4}
+
+  fake_alert:
+    groups:
+      alert:
+        weight: 0.3
+        max_hits: 4
+        terms: [virus detected, virus alert, your computer is blocked, your computer has been blocked,
+                your computer is locked, your computer has been locked, your pc is locked, trojan, spyware,
+                malware detected, you have been hacked, hacked, security breach, system infected,
+                your data will be deleted, error code]
+      brand:
+        weight: 0.1
+        max_hits: 2
+        terms: [windows defender, microsoft security, microsoft support, windows security,
+                microsoft security alert, windows support, apple support]
+      support_call:
+        weight: 0.25
+        max_hits: 3
+        terms: [call support, call microsoft, call now, toll free, tollfree, helpline, certified technician,
+                do not restart, do not shut down, do not close this window, do not close this page]
+    patterns: {phone_tollfree: 0.1, phone_mobile: 0.05}
+    combos:
+      - {id: brand_with_phone, weight: 0.3, all_of: ["group:brand", "pattern:phone_any"]}
+      - {id: alert_with_phone, weight: 0.2, all_of: ["group:alert", "pattern:phone_any"]}
+
+# Scam tactics on screen (fusion weights them per tactic). Same term/weight format.
+tactics:
+  authority:
+    groups:
+      authority:
+        weight: 0.5
+        max_hits: 2
+        terms: [police, cyber crime, cybercrime, cbi, enforcement directorate, customs, income tax department,
+                rbi, reserve bank, trai, court, supreme court, narcotics, ncb, microsoft support,
+                government of india, ministry]
+  threat:
+    groups:
+      threat:
+        weight: 0.5
+        max_hits: 3
+        terms: [account will be blocked, account has been blocked, account will be frozen, account frozen,
+                account suspended, account will be suspended, kyc expired, kyc pending, kyc not updated,
+                update your kyc, will be disconnected, power will be disconnected, electricity will be disconnected,
+                penalty, gst notice, arrest warrant, digital arrest, legal action, fir, fir registered,
+                your computer has been locked, your data will be deleted, sim will be blocked, blocked today]
+  secrecy:
+    groups:
+      secrecy:
+        weight: 0.5
+        max_hits: 2
+        terms: [do not tell anyone, don't tell anyone, do not share with family, keep this confidential,
+                confidential investigation, do not disconnect the call, stay on the call, do not inform]
+  urgency:
+    groups:
+      urgency:
+        weight: 0.35
+        max_hits: 3
+        terms: [immediately, urgent, urgently, within 24 hours, within 2 hours, tonight, today itself,
+                last warning, final notice, act now, expires today, right now, before 9 pm, before 9:30 pm]
+  money_move:
+    groups:
+      money_move:
+        weight: 0.5
+        max_hits: 2
+        terms: [refund, refund desk, security fee, processing fee, verification fee, safe account,
+                secure account, keep your bank app ready, gift card, pay to unlock, transfer to rbi,
+                release charges, customer care refund]
+
+# News / article context: reduces fake_alert and the threat tactic (screen_classifier.news_factor).
+news:
+  sites: [times of india, timesofindia, ndtv, hindustan times, indian express, the hindu, bbc, bbc news,
+          india today, news18, the print, theprint, livemint, moneycontrol, economic times, reuters]
+  words: [news, reported, according to police, police said, scammers, fraudsters, cyber crime cell said,
+          victims, lost rs, duped, conned, arrested, modus operandi, awareness, advisory, how to stay safe,
+          published, updated on, read more]

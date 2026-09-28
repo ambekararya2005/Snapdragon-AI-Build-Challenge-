@@ -1,0 +1,21 @@
+TITLE: Amazon.in Checkout - Google Chrome
+amazon.in  Checkout (2 items)
+1  Delivery address  Close
+2  Select a payment method
+Your available balance
+Amazon Pay Balance  ₹ 0.00
+Credit or debit card
+Card number  4111 1111 1111 1111
+Name on card
+Expiry date  MM/YY
+CVV
+Net Banking  Choose an Option
+Other UPl Apps
+Enter UPI ID  Please enter your UPI ID  eg: mobileNumber@upi
+Cash on Delivery/Pay on Delivery
+Use this payment method
+Order Summary
+Items:  ₹ 1,499.00
+Delivery:  ₹ 40.00
+Order Total:  ₹1,539.00
+Place your order

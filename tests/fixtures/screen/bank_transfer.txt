@@ -1,0 +1,16 @@
+TITLE: DEMO – NOT A REAL BANK – Transfer funds - Google Chrome
+DEMO-NOTAREALBANK·Kavach test page·Do not enter real details
+Demo Bank of Nowhere · NetBanking  Accounts  Transfer funds  Cards  Logout
+Transfer funds
+Send money to a beneficiary using IMPS / NEFT
+From account: Savings XXXX 4821 · Available balance: ₹ 2,48,35O.00
+Benef1ciary name  Rahul Verma (Refund Desk)
+Account number  50100 2233 4455
+IFSC  DEMO0001234
+Amount (₹)  49,999
+Transfer mode  IMPS (instant)
+Remarks  Customer care refund processing
+An 0TP has been sent to your registered mobile number ending 7788.
+Enter OTP  6-digit OTP
+Cancel  Confirm transfer
+DEMO – NOT A REAL BANK. Static test page for the Kavach scam shield; it sends nothing anywhere.

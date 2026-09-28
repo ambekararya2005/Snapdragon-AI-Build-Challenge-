@@ -1,10 +1,11 @@
 """Live screen -> OCR loop: ScreenSampler feeds changed frames to the OCR backend.
 
-Per OCR'd frame prints: time, process, window title, line count, OCR latency. The title and the
+Per OCR'd frame prints: time, process, window title, line count, OCR latency, and the screen
+classifier's top label, label scores and screen tactics (detect.screen_classifier). The title and the
 first 200 characters of text are shown only if privacy.debug_show_text is true. Ctrl+C (or
 --seconds) prints OCR p50/p95 latency and the frame skip rate. Nothing is written to disk.
 
-Usage:  python scripts\\run_screen_ocr.py [--seconds 20]
+Usage:  python scripts\\run_screen_ocr.py [--seconds 20] [--backend native] [--evidence]
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from capture.screen import ScreenFrame, ScreenSampler  # noqa: E402
+from detect.screen_classifier import classify, format_label  # noqa: E402
 from kavach_config import get_config  # noqa: E402
 from kavach_privacy import redact_title, show_text  # noqa: E402
 from models.ocr import create_backend  # noqa: E402
@@ -27,6 +29,8 @@ from models.ocr import create_backend  # noqa: E402
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Screen -> OCR live loop")
     p.add_argument("--seconds", type=float, default=0, help="stop after N seconds (default: until Ctrl+C)")
+    p.add_argument("--backend", choices=["rapidocr", "native"], help="override config ocr.backend")
+    p.add_argument("--evidence", action="store_true", help="also print classifier evidence ids")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     if hasattr(sys.stdout, "reconfigure"):
@@ -35,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = get_config()
     show = show_text()
     t0 = time.perf_counter()
+    if args.backend:
+        cfg.ocr["backend"] = args.backend
     ocr = create_backend(cfg)
     print(f"OCR: {ocr.name} on {ocr.provider} (init {(time.perf_counter() - t0) * 1000:.0f} ms); "
           f"debug_show_text={show}; sampling every {cfg.screen.interval_s}s")
@@ -47,6 +53,10 @@ def main(argv: list[str] | None = None) -> int:
               f"{frame.image.shape[1]}x{frame.image.shape[0]}  lines={len(result.lines):<3} "
               f"ocr={result.total_ms:6.0f} ms (det {result.det_ms:.0f} / rec {result.rec_ms:.0f})  "
               f"capture={frame.capture_ms:.0f} ms", flush=True)
+        label = classify(result, w)  # ids and scores only; never screen text
+        print(f"          {format_label(label)}", flush=True)
+        if args.evidence:
+            print("          evidence: " + ", ".join(label.evidence), flush=True)
         if show and result.full_text:
             print("          text: " + result.full_text[:200].replace("\n", " | "), flush=True)
 

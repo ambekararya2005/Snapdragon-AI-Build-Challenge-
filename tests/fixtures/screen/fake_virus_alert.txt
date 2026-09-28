@@ -1,0 +1,16 @@
+TITLE: DEMO – NOT A REAL ALERT – Windows Defender – Virus detected - Google Chrome
+DEMO-NOT A REAL ALERT·Kavach test page imitating a tech-support scam·Not from Microsoft
+Windows Defender - Security Scan
+Scanning C:\Windows\System32 ... 4,812 files scanned
+Windows Defender – Virus detected
+Your computer has been locked
+Trojan Spyware detected (Error code #Ox268d3). Your banking passwords, credit card
+details and photos are being stolen right now.
+Do not restart or shut down your computer
+Do not close this window, or your data will be deleted
+Your IP address has been blocked for your safety
+Call Microsoft Support immediately to unlock your PC:
+Toll free: 1-8OO-555-0100
+A certified technician will connect to your computer with AnyDesk to remove the virus.
+Keep your bank app ready for the refund of the security fee.
+Ignore  Call support now

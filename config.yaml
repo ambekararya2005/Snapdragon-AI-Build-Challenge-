@@ -85,6 +85,17 @@ audio:                     # placeholders for later
   chunk_s: 5
   sample_rate: 16000
 
+screen_classifier:         # detect/screen_classifier.py; keywords/weights in detect/lexicons/screen.yaml
+  lexicon: detect/lexicons/screen.yaml
+  label_threshold: 0.5     # a label is "present" at or above this score
+  tactic_threshold: 0.5    # a screen tactic is reported at or above this score
+  news_min_hits: 2         # news site/word hits (title + text) needed to treat the screen as an article
+  news_factor: 0.3         # multiply the scores below by this on news/article screens
+  # An article *about* scams quotes threats, authorities and "safe accounts"; reduce all tactics,
+  # not only threat, or reading the news would add fusion points.
+  news_reduces: [fake_alert, threat, authority, secrecy, urgency, money_move]
+  compact_min_len: 6       # terms with >= this many letters also match in space-stripped text
+
 fusion:
   # weight = points per hit; decay_s = seconds a hit keeps counting (null = while active); cap = max points
   signals:

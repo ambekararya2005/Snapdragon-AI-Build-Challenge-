@@ -1,0 +1,13 @@
+TITLE: SBI KYC Update - Online Verification - Google Chrome
+State Bank of lndia  |  onlinesbi KYC Portal
+URGENT: Your SBI account will be blocked today
+Dear Customer, your KYC expired on 12/09/2026. As per RBl guidelines your account will be
+suspended within 24 hours if KYC is not updated.
+Update your KYC immediately to avoid penalty.
+Customer ID / Username
+Registered Mobile Number  +91 98765 43210
+PAN Card Number
+Date of Birth (DD/MM/YYYY)
+ATM PIN
+Submit KYC
+Do not share this page with anyone. Keep this confidential.
