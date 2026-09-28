@@ -22,7 +22,7 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import onnxruntime as ort
@@ -94,6 +94,37 @@ def _providers_list(provider_name: str, options: dict[str, str]) -> list[tuple[s
     return [(provider_name, options), (CPU, {})]
 
 
+class LatencyStats:
+    """Thread-safe rolling latency window (last STATS_WINDOW samples) plus a total count."""
+
+    def __init__(self, window: int = STATS_WINDOW):
+        self._lat_ms: deque[float] = deque(maxlen=window)
+        self._n = 0
+        self._lock = threading.Lock()
+
+    def record(self, ms: float) -> None:
+        with self._lock:
+            self._lat_ms.append(float(ms))
+            self._n += 1
+
+    def reset(self) -> None:
+        with self._lock:
+            self._lat_ms.clear()
+            self._n = 0
+
+    def summary(self) -> dict[str, Any]:
+        """{n, last_ms, p50_ms, p95_ms}; None values when there are no samples yet."""
+        with self._lock:
+            lat = np.array(self._lat_ms, dtype=np.float64)
+            n = self._n
+        return {
+            "n": n,
+            "last_ms": round(float(lat[-1]), 3) if lat.size else None,
+            "p50_ms": round(float(np.percentile(lat, 50)), 3) if lat.size else None,
+            "p95_ms": round(float(np.percentile(lat, 95)), 3) if lat.size else None,
+        }
+
+
 class KavachSession:
     """Wraps an onnxruntime.InferenceSession and records per-run latency."""
 
@@ -103,17 +134,13 @@ class KavachSession:
         self.requested_provider = requested_provider
         self.actual_provider = session.get_providers()[0]
         self.log_latency = log_latency
-        self._lat_ms: deque[float] = deque(maxlen=STATS_WINDOW)
-        self._n = 0
-        self._lock = threading.Lock()
+        self.latency = LatencyStats()
 
     def run(self, feeds: Mapping[str, np.ndarray], output_names: Sequence[str] | None = None) -> list[np.ndarray]:
         t0 = time.perf_counter()
         outputs = self.session.run(list(output_names) if output_names else None, dict(feeds))
         ms = (time.perf_counter() - t0) * 1000.0
-        with self._lock:
-            self._lat_ms.append(ms)
-            self._n += 1
+        self.latency.record(ms)
         if self.log_latency:
             log.debug("%s: run %.2f ms on %s", self.name, ms, self.actual_provider)
         return outputs
@@ -145,27 +172,35 @@ class KavachSession:
             self.run(feeds)
 
     def reset_stats(self) -> None:
-        with self._lock:
-            self._lat_ms.clear()
-            self._n = 0
+        self.latency.reset()
 
     def stats(self) -> dict[str, Any]:
-        with self._lock:
-            lat = np.array(self._lat_ms, dtype=np.float64)
-            n = self._n
         return {
             "name": self.name,
             "requested_provider": self.requested_provider,
             "actual_provider": self.actual_provider,
-            "n": n,
-            "last_ms": round(float(lat[-1]), 3) if lat.size else None,
-            "p50_ms": round(float(np.percentile(lat, 50)), 3) if lat.size else None,
-            "p95_ms": round(float(np.percentile(lat, 95)), 3) if lat.size else None,
+            **self.latency.summary(),
         }
 
 
 _registry: dict[str, KavachSession] = {}
+_external: dict[str, Callable[[], dict[str, Any]]] = {}
 _registry_lock = threading.Lock()
+
+
+def register_external_stats(name: str, stats_fn: Callable[[], dict[str, Any]]) -> None:
+    """Add stats for inference not run through create_session (e.g. the rapidocr backend).
+
+    stats_fn() should return the same fields as KavachSession.stats():
+    {name, requested_provider, actual_provider, n, last_ms, p50_ms, p95_ms}.
+    """
+    with _registry_lock:
+        _external[name] = stats_fn
+
+
+def unregister_external_stats(name: str) -> None:
+    with _registry_lock:
+        _external.pop(name, None)
 
 
 def create_session(
@@ -219,12 +254,20 @@ def get_session(name: str) -> KavachSession | None:
 def all_stats() -> list[dict[str, Any]]:
     with _registry_lock:
         sessions = list(_registry.values())
-    return [s.stats() for s in sessions]
+        external = list(_external.items())
+    out = [s.stats() for s in sessions]
+    for name, fn in external:
+        try:
+            out.append({"name": name, **fn()})
+        except Exception as e:
+            log.warning("stats for %s failed: %s", name, type(e).__name__)
+    return out
 
 
 def clear_registry() -> None:
     with _registry_lock:
         _registry.clear()
+        _external.clear()
 
 
 def system_info() -> dict[str, Any]:

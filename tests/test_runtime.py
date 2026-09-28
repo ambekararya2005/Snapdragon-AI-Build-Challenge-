@@ -94,3 +94,20 @@ def test_system_info():
     assert "CPUExecutionProvider" in info["available_providers"]
     assert info["onnxruntime_packages"]
     assert set(info) >= {"machine", "python"}
+
+
+def test_external_stats_in_registry():
+    lat = runtime.LatencyStats()
+    runtime.register_external_stats("ext", lambda: {"requested_provider": "x", "actual_provider": "y", **lat.summary()})
+    assert runtime.all_stats() == [{"name": "ext", "requested_provider": "x", "actual_provider": "y",
+                                    "n": 0, "last_ms": None, "p50_ms": None, "p95_ms": None}]
+    for ms in (10, 20, 30):
+        lat.record(ms)
+    (s,) = runtime.all_stats()
+    assert s["n"] == 3 and s["last_ms"] == 30 and s["p50_ms"] == 20
+
+    runtime.register_external_stats("broken", lambda: 1 / 0)       # a failing provider is skipped
+    assert [s["name"] for s in runtime.all_stats()] == ["ext"]
+    runtime.unregister_external_stats("ext")
+    runtime.unregister_external_stats("broken")
+    assert runtime.all_stats() == []

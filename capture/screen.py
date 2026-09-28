@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import dataclasses
 import logging
+import os
 import sys
 import threading
 import time
@@ -38,6 +40,7 @@ if IS_WINDOWS:
 log = logging.getLogger("capture.screen")
 
 THUMB_W, THUMB_H = 64, 36
+DEFAULT_EXCLUDE_CLASSES = ("Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW")  # taskbars, desktop
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
 Rect = tuple[int, int, int, int]  # left, top, right, bottom (physical pixels)
 
@@ -66,6 +69,8 @@ class WindowInfo:
     pid: int | None
     process_name: str | None
     rect: Rect
+    dpi: int = 96                      # window DPI (96 = 100% scaling)
+    class_name: str = ""
 
     @property
     def size(self) -> tuple[int, int]:
@@ -75,14 +80,34 @@ class WindowInfo:
 @dataclass
 class ScreenFrame:
     ts: float
-    window: WindowInfo
+    window: WindowInfo                 # full window; the image may have its top cropped (crop_top)
     image: np.ndarray | None           # BGR uint8; None in on_sample metadata callbacks
     changed: bool
     capture_ms: float
     diff: float = 0.0                  # mean abs diff of the 64x36 thumbnail vs the last sent frame
+    crop_top: int = 0                  # physical px removed from the top (browser tab strip)
 
 
 # ---------------------------------------------------------------- pure helpers (unit-tested)
+
+def top_crop_px(window: WindowInfo, crop_table: Mapping[str, int] | None) -> int:
+    """Browser tab-strip height in physical px: config value (at 96 DPI) scaled by the window DPI.
+
+    Never removes more than half the window, so a tiny/odd window is still captured.
+    """
+    if not crop_table or not window.process_name:
+        return 0
+    base = {k.lower(): v for k, v in crop_table.items()}.get(window.process_name.lower())
+    if not base:
+        return 0
+    px = round(float(base) * (window.dpi or 96) / 96)
+    return max(0, min(px, window.size[1] // 2))
+
+
+def crop_rect_top(rect: Rect, px: int) -> Rect:
+    l, t, r, b = rect
+    return l, min(t + px, b), r, b
+
 
 def clamp_rect(rect: Rect, bounds: Mapping[str, int]) -> Rect | None:
     """Intersect rect with the virtual screen {left, top, width, height}; None if nothing is left."""
@@ -162,35 +187,62 @@ def _dwm_frame_rect(hwnd: int) -> Rect | None:
     return None
 
 
-def _exclude_prefixes() -> list[str]:
+def _window_dpi(hwnd: int) -> int:
+    try:
+        return int(ctypes.windll.user32.GetDpiForWindow(wintypes.HWND(hwnd))) or 96
+    except (AttributeError, OSError):
+        return 96
+
+
+def _screen_cfg(key: str, default: Any) -> Any:
     from kavach_config import get_config
 
-    return list(get_config().screen.get("exclude_title_prefixes", []))
+    return get_config().screen.get(key, default)
 
 
-def get_active_window(exclude_title_prefixes: Iterable[str] | None = None) -> WindowInfo | None:
-    """Foreground window, or None if there is none, it is minimized, zero-size or excluded (e.g. Kavach)."""
+def get_active_window(
+    exclude_title_prefixes: Iterable[str] | None = None,
+    exclude_classes: Iterable[str] | None = None,
+) -> WindowInfo | None:
+    """Foreground window, or None if there is none, it is minimized, zero-size or excluded.
+
+    Excluded: titles starting with screen.exclude_title_prefixes (Kavach windows), window classes in
+    screen.exclude_window_classes (taskbar, desktop), and any window owned by this process.
+    """
     if not IS_WINDOWS:
         return None
-    prefixes = tuple(_exclude_prefixes() if exclude_title_prefixes is None else exclude_title_prefixes)
+    if exclude_title_prefixes is None:
+        exclude_title_prefixes = _screen_cfg("exclude_title_prefixes", [])
+    if exclude_classes is None:
+        exclude_classes = _screen_cfg("exclude_window_classes", DEFAULT_EXCLUDE_CLASSES)
+    prefixes = tuple(exclude_title_prefixes)
+    classes = set(exclude_classes)
     try:
         hwnd = win32gui.GetForegroundWindow()
         if not hwnd or win32gui.IsIconic(hwnd):
             return None
+        class_name = win32gui.GetClassName(hwnd) or ""
+        if class_name in classes:
+            return None
         title = win32gui.GetWindowText(hwnd) or ""
         if prefixes and title.startswith(prefixes):
+            return None
+        pid: int | None = None
+        try:
+            pid = win32process.GetWindowThreadProcessId(hwnd)[1]
+        except (OSError, ValueError):
+            pass
+        if pid == os.getpid():
             return None
         rect = _dwm_frame_rect(hwnd) or tuple(win32gui.GetWindowRect(hwnd))
         if rect[2] - rect[0] <= 0 or rect[3] - rect[1] <= 0:
             return None
-        pid: int | None = None
         name: str | None = None
         try:
-            pid = win32process.GetWindowThreadProcessId(hwnd)[1]
-            name = psutil.Process(pid).name()
+            name = psutil.Process(pid).name() if pid else None
         except (psutil.Error, OSError, ValueError):
             pass
-        return WindowInfo(int(hwnd), title, pid, name, tuple(int(v) for v in rect))
+        return WindowInfo(int(hwnd), title, pid, name, tuple(int(v) for v in rect), _window_dpi(hwnd), class_name)
     except Exception as e:  # pywintypes.error when the window vanishes mid-call
         log.debug("active window unreadable: %s", type(e).__name__)
         return None
@@ -251,10 +303,12 @@ class ScreenSampler:
         self.interval_s = float(scfg.get("interval_s", 2.5))
         self.max_side = int(scfg.get("max_side", 1920))
         prefixes = list(scfg.get("exclude_title_prefixes", []))
+        classes = list(scfg.get("exclude_window_classes", DEFAULT_EXCLUDE_CLASSES))
+        self.crop_table = dict(scfg.get("browser_top_crop_px") or {})
         self.detector = ChangeDetector(scfg.get("change_threshold", 4.0), bool(scfg.get("force_on_title_change", True)))
         self.on_frame = on_frame
         self.on_sample = on_sample
-        self._window_fn = window_fn or (lambda: get_active_window(prefixes))
+        self._window_fn = window_fn or (lambda: get_active_window(prefixes, classes))
         self._grab_fn = grab_fn
         self.no_window = 0
         self.last_capture_ms: float | None = None
@@ -267,8 +321,10 @@ class ScreenSampler:
         if window is None:
             self.no_window += 1
             return None
+        crop = top_crop_px(window, self.crop_table)
+        target = dataclasses.replace(window, rect=crop_rect_top(window.rect, crop)) if crop else window
         t0 = time.perf_counter()
-        image = self._grab_fn(window, self.max_side)
+        image = self._grab_fn(target, self.max_side)
         capture_ms = (time.perf_counter() - t0) * 1000.0
         if image is None:
             self.no_window += 1
@@ -277,7 +333,7 @@ class ScreenSampler:
         changed, diff = self.detector.update(image, window.title, window.hwnd)
         ts = time.time()
         if changed and self.on_frame:
-            frame = ScreenFrame(ts, window, image, True, capture_ms, diff)
+            frame = ScreenFrame(ts, window, image, True, capture_ms, diff, crop)
             try:
                 self.on_frame(frame)
             except Exception:
@@ -286,7 +342,7 @@ class ScreenSampler:
                 frame.image = None
                 del frame
         del image
-        meta = ScreenFrame(ts, window, None, changed, capture_ms, diff)
+        meta = ScreenFrame(ts, window, None, changed, capture_ms, diff, crop)
         if self.on_sample:
             try:
                 self.on_sample(meta)
@@ -402,15 +458,18 @@ def _main(argv: list[str] | None = None) -> int:
     for i in (3, 2, 1):
         print(f"capturing in {i}... (switch to the window to capture)", flush=True)
         time.sleep(1)
-    window = get_active_window(cfg.screen.get("exclude_title_prefixes", []))
+    window = get_active_window()
     if window is None:
-        print("no capturable active window (none, minimized, zero-size or excluded)")
+        print("no capturable active window (none, minimized, zero-size, shell or excluded)")
         return 0
-    print(f"window:  hwnd={window.hwnd} pid={window.pid} process={window.process_name}")
+    crop = top_crop_px(window, cfg.screen.get("browser_top_crop_px"))
+    target = dataclasses.replace(window, rect=crop_rect_top(window.rect, crop)) if crop else window
+    print(f"window:  hwnd={window.hwnd} pid={window.pid} process={window.process_name} class={window.class_name}")
     print(f"title:   {_short(redact_title(window.title), 100)}")
-    print(f"rect:    {window.rect}  size={window.size[0]}x{window.size[1]}")
+    print(f"rect:    {window.rect}  size={window.size[0]}x{window.size[1]}  dpi={window.dpi} "
+          f"({window.dpi / 96:.0%})  top crop={crop}px")
     t0 = time.perf_counter()
-    image = grab(window, int(cfg.screen.get("max_side", 1920)))
+    image = grab(target, int(cfg.screen.get("max_side", 1920)))
     capture_ms = (time.perf_counter() - t0) * 1000
     if image is None:
         print("window is outside the virtual screen")
@@ -418,7 +477,7 @@ def _main(argv: list[str] | None = None) -> int:
     print(f"image:   shape={image.shape} dtype={image.dtype}  (max_side={cfg.screen.max_side})")
     print(f"capture: {capture_ms:.1f} ms (first grab includes mss init)")
     t0 = time.perf_counter()
-    grab(window, int(cfg.screen.get("max_side", 1920)))
+    grab(target, int(cfg.screen.get("max_side", 1920)))
     print(f"capture: {(time.perf_counter() - t0) * 1000:.1f} ms (warm)")
     if args.preview:
         _show_preview(image)

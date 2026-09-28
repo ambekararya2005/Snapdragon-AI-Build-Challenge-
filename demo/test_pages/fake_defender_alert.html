@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO – NOT A REAL ALERT – Windows Defender – Virus detected</title>
+<style>
+  :root { --blue: #0a4ea3; --red: #c42b1c; --text: #1b1f24; --muted: #555; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #0a4ea3; color: var(--text); }
+  .demo-banner { background: #ffd400; color: #000; text-align: center; font-weight: 700; padding: 8px 16px; }
+  .scan { color: #fff; padding: 24px 40px; }
+  .scan h2 { margin: 0 0 8px; font-weight: 600; }
+  .bar { height: 10px; background: rgba(255,255,255,.25); border-radius: 5px; overflow: hidden; max-width: 600px; }
+  .bar div { width: 83%; height: 100%; background: #fff; }
+  .dialog { max-width: 640px; margin: 20px auto 40px; background: #fff; border-top: 8px solid var(--red); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  .dialog header { background: var(--red); color: #fff; padding: 12px 20px; font-weight: 700; font-size: 18px; }
+  .dialog .body { padding: 22px 26px; }
+  .dialog h1 { color: var(--red); font-size: 26px; margin: 0 0 10px; }
+  .dialog ul { margin: 10px 0 16px 20px; padding: 0; }
+  .phone { font-size: 30px; font-weight: 800; text-align: center; background: #fdecea; border: 2px dashed var(--red); padding: 14px; margin: 16px 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .actions { display: flex; gap: 12px; justify-content: flex-end; padding: 0 26px 22px; }
+  button { font: inherit; font-weight: 600; padding: 10px 20px; border: 1px solid var(--blue); border-radius: 4px; }
+  .primary { background: var(--blue); color: #fff; }
+  .secondary { background: #fff; color: var(--blue); }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL ALERT · Kavach test page imitating a tech-support scam · Not from Microsoft</div>
+  <div class="scan">
+    <h2>Windows Defender – Security Scan</h2>
+    <p>Scanning C:\Windows\System32 ... 4,812 files scanned</p>
+    <div class="bar"><div></div></div>
+  </div>
+
+  <div class="dialog">
+    <header>Windows Defender – Virus detected</header>
+    <div class="body">
+      <h1>Your computer has been locked</h1>
+      <p><strong>Trojan Spyware detected (Error code #0x268d3).</strong> Your banking passwords, credit card
+         details and photos are being stolen right now.</p>
+      <ul>
+        <li>Do not restart or shut down your computer</li>
+        <li>Do not close this window, or your data will be deleted</li>
+        <li>Your IP address has been blocked for your safety</li>
+      </ul>
+      <p>Call Microsoft Support immediately to unlock your PC:</p>
+      <div class="phone">Toll free: 1-800-555-0100</div>
+      <p class="muted">A certified technician will connect to your computer with AnyDesk to remove the virus.
+         Keep your bank app ready for the refund of the security fee.</p>
+    </div>
+    <div class="actions">
+      <button class="secondary">Ignore</button>
+      <button class="primary">Call support now</button>
+    </div>
+  </div>
+  <p style="text-align:center;color:#dfe8f5;font-size:13px">DEMO – NOT A REAL ALERT. Static test page for Kavach; the phone number is a reserved fictional number.</p>
+</body>
+</html>

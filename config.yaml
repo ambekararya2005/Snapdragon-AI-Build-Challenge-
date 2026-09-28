@@ -53,16 +53,29 @@ screen:
   change_threshold: 4.0    # mean abs pixel diff needed to re-run OCR
   force_on_title_change: true
   exclude_title_prefixes: ["Kavach"]
+  exclude_window_classes: [Shell_TrayWnd, Shell_SecondaryTrayWnd, Progman, WorkerW]  # taskbars, desktop
+  # Browser tab strip cropped off the top before OCR (address bar kept; the active tab's title
+  # still comes from the window title). Values in px at 100% scaling (96 DPI), scaled by the
+  # window's DPI. Measured on the dev PC at 125%, dark theme:
+  browser_top_crop_px:
+    chrome.exe: 41     # measured: 51 px @125%, maximized (tab titles y<=36, address bar y>=70)
+    msedge.exe: 40     # measured: 50 px @125%, maximized and restored (titles y<=34, address bar y>=65)
+    brave.exe: 41      # NOT measured (not installed); Chromium, assumed same as Chrome
+    firefox.exe: 44    # NOT measured (not installed); estimate, re-measure on a PC with Firefox
   max_side: 1920
 
 ocr:
   backend: rapidocr        # rapidocr | native
   min_confidence: 0.5
-  det_model: weights/ocr/det.onnx
+  det_model: weights/ocr/det.onnx      # scripts\fetch_ocr_models.py copies these out of rapidocr_onnxruntime
   rec_model: weights/ocr/rec.onnx
+  cls_model: weights/ocr/cls.onnx
   keys: weights/ocr/keys.txt
+  use_cls: false           # 0/180 deg text classifier; screen text is upright, so skip it (saves latency)
   det_input_hw: [736, 1280]
-  rec_input_hw: [48, 320]
+  # rec width = p95 of line widths at h=48 on the mock bank page in Chrome @125%, rounded up to 32
+  # (scripts\measure_rec_widths.py: p50 211, p95 1144, max 1913). Wider lines need splitting.
+  rec_input_hw: [48, 1152]
   rec_batch: 8
 
 audio:                     # placeholders for later

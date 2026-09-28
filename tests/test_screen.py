@@ -156,6 +156,7 @@ def test_get_active_window_real():
 def test_get_active_window_filters(monkeypatch):
     g = S.win32gui
     monkeypatch.setattr(g, "GetForegroundWindow", lambda: 1234)
+    monkeypatch.setattr(g, "GetClassName", lambda h: "Notepad")
     monkeypatch.setattr(g, "IsIconic", lambda h: False)
     monkeypatch.setattr(g, "GetWindowText", lambda h: "Kavach warning")
     monkeypatch.setattr(g, "GetWindowRect", lambda h: (0, 0, 800, 600))
@@ -176,6 +177,85 @@ def test_get_active_window_filters(monkeypatch):
 
     monkeypatch.setattr(g, "GetForegroundWindow", lambda: 0)
     assert S.get_active_window(["Kavach"]) is None               # no window
+
+
+@windows_only
+@pytest.mark.parametrize("cls", ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"])
+def test_get_active_window_skips_shell_classes(monkeypatch, cls):
+    g = S.win32gui
+    monkeypatch.setattr(g, "GetForegroundWindow", lambda: 1234)
+    monkeypatch.setattr(g, "IsIconic", lambda h: False)
+    monkeypatch.setattr(g, "GetClassName", lambda h: cls)
+    monkeypatch.setattr(g, "GetWindowText", lambda h: "")
+    monkeypatch.setattr(g, "GetWindowRect", lambda h: (0, 1020, 1920, 1080))
+    monkeypatch.setattr(S, "_dwm_frame_rect", lambda h: None)
+    monkeypatch.setattr(S.win32process, "GetWindowThreadProcessId", lambda h: (1, 999999999))
+    assert S.get_active_window([], list(S.DEFAULT_EXCLUDE_CLASSES)) is None
+    assert S.get_active_window([], []) is not None               # same window, no class filter
+
+
+@windows_only
+def test_get_active_window_skips_own_process(monkeypatch):
+    import os
+    g = S.win32gui
+    monkeypatch.setattr(g, "GetForegroundWindow", lambda: 1234)
+    monkeypatch.setattr(g, "IsIconic", lambda h: False)
+    monkeypatch.setattr(g, "GetClassName", lambda h: "TkTopLevel")
+    monkeypatch.setattr(g, "GetWindowText", lambda h: "Some overlay")
+    monkeypatch.setattr(g, "GetWindowRect", lambda h: (0, 0, 800, 600))
+    monkeypatch.setattr(S, "_dwm_frame_rect", lambda h: None)
+    monkeypatch.setattr(S.win32process, "GetWindowThreadProcessId", lambda h: (1, os.getpid()))
+    assert S.get_active_window([], []) is None
+
+
+# ---------------------------------------------------------------- browser tab-strip crop
+
+CROPS = {"chrome.exe": 41, "msedge.exe": 40}
+
+
+def win(process, dpi=96, h=1020):
+    return S.WindowInfo(1, "t", 10, process, (0, 0, 1920, h), dpi)
+
+
+@pytest.mark.parametrize("process,dpi,expected", [
+    ("chrome.exe", 96, 41),
+    ("chrome.exe", 120, 51),          # measured value at 125%
+    ("Chrome.EXE", 144, 62),          # case-insensitive, 150%
+    ("msedge.exe", 120, 50),          # measured value at 125%
+    ("notepad.exe", 120, 0),
+    (None, 120, 0),
+])
+def test_top_crop_px(process, dpi, expected):
+    assert S.top_crop_px(win(process, dpi), CROPS) == expected
+
+
+def test_top_crop_px_never_more_than_half():
+    assert S.top_crop_px(win("chrome.exe", 96, h=60), CROPS) == 30
+    assert S.top_crop_px(win("chrome.exe"), None) == 0
+
+
+def test_crop_rect_top():
+    assert S.crop_rect_top((0, 0, 1920, 1020), 51) == (0, 51, 1920, 1020)
+    assert S.crop_rect_top((0, 0, 100, 10), 50) == (0, 10, 100, 10)       # never past the bottom
+
+
+def test_sampler_crops_browser_but_keeps_window_info():
+    grabbed = []
+    window = S.WindowInfo(1, "DEMO – NOT A REAL BANK - Google Chrome", 10, "chrome.exe", (0, 0, 1920, 1020), 120)
+    cfg = {"screen": {"interval_s": 1, "change_threshold": 4.0, "max_side": 1920,
+                      "browser_top_crop_px": CROPS, "exclude_window_classes": []}}
+    frames = []
+
+    def grab_fn(w, max_side):
+        grabbed.append(w.rect)
+        return frame(0, w.size[1], w.size[0])
+
+    sampler = S.ScreenSampler(cfg, on_frame=lambda f: frames.append((f.image.shape, f.crop_top, f.window.rect)),
+                              window_fn=lambda: window, grab_fn=grab_fn)
+    meta = sampler.sample_once()
+    assert grabbed == [(0, 51, 1920, 1020)]
+    assert frames == [((969, 1920, 3), 51, (0, 0, 1920, 1020))]           # title/rect of the full window
+    assert meta.crop_top == 51
 
 
 @windows_only
