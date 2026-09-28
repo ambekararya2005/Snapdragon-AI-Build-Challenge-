@@ -9,7 +9,7 @@ runtime:
     htp_performance_mode: burst
     enable_htp_fp16_precision: "1"
   dml:
-    device_id: 0
+    device_id: 1           # dev PC: 0 = Radeon iGPU (Ryzen), 1 = RTX 4050 (DXGI adapter order)
   cuda:
     device_id: 0
 
