@@ -1,0 +1,9 @@
+# Kavach demo script: TV news report about a digital-arrest scam, third person only. FICTIONAL people and figures.
+# About 45 seconds. Lines starting with '#' are comments and are not spoken.
+Good evening. A retired teacher in Pune has lost forty lakh rupees in what police are calling a digital arrest scam.
+According to the complaint, the fraudsters called the victim pretending to be CBI officers and claimed that a parcel in his name contained drugs.
+The scammers kept him on a video call for two days and told him not to tell his family.
+Police said the caller asked him to move his savings into a so called safe account for verification.
+Cyber crime officials say no government agency conducts investigations over video calls.
+The Reserve Bank has also warned that it never asks citizens to transfer money.
+If you receive such a call, disconnect immediately and report it on the national cyber crime helpline, one nine three zero.

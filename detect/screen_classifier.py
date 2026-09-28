@@ -32,11 +32,11 @@ from typing import Any, Iterable, Mapping
 
 import yaml
 
+from detect.tactic_lexicon import TACTICS, TacticLexicon, load_tactic_lexicon
 from models.ocr import fold_confusables
 
 ROOT = Path(__file__).resolve().parent.parent
 LABELS = ("bank", "upi_payment", "otp_card", "fake_alert")
-TACTICS = ("authority", "threat", "secrecy", "urgency", "money_move")
 TOP_PRIORITY = ("fake_alert", "otp_card", "upi_payment", "bank")  # tie-break order
 BROWSERS = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe"}
 DEFAULTS = {"lexicon": "detect/lexicons/screen.yaml", "label_threshold": 0.5, "tactic_threshold": 0.5,
@@ -170,7 +170,7 @@ class _Spec:
 @dataclass
 class Lexicon:
     labels: dict[str, _Spec]
-    tactics: dict[str, _Spec]
+    tactics: TacticLexicon | None            # shared with detect/intent.py (screen.yaml tactics_from)
     news_sites: list[_Term]
     news_words: list[_Term]
     disclaimer: list[_Term] = field(default_factory=list)
@@ -197,7 +197,8 @@ def load_lexicon(path: str, compact_min_len: int) -> Lexicon:
     news = raw.get("news", {})
     return Lexicon(
         labels={k: _compile_spec(v, compact_min_len) for k, v in raw.get("labels", {}).items()},
-        tactics={k: _compile_spec(v, compact_min_len) for k, v in raw.get("tactics", {}).items()},
+        tactics=load_tactic_lexicon(str(ROOT / raw["tactics_from"]), "screen", canon, compact_min_len)
+        if raw.get("tactics_from") else None,
         news_sites=[_compile_term(t, compact_min_len) for t in news.get("sites", [])],
         news_words=[_compile_term(t, compact_min_len) for t in news.get("words", [])],
         disclaimer=[_compile_term(t, compact_min_len) for t in (raw.get("bank_disclaimer") or {}).get("terms", [])],
@@ -312,16 +313,15 @@ def classify(ocr_result: Any, window_info: Any = None, config: Mapping | None = 
     if disc_found:
         evidence.append("bank_disclaimer")
         evidence += [f"disclaimer:{h}" for h in disc_found]
-    tactic_scores: dict[str, float] = {}
-    for name in TACTICS:
-        spec = lex.tactics.get(name)
-        if not spec:
-            tactic_scores[name] = 0.0
-            continue
-        s_body, ev_body = _score(f"tactic:{name}", spec, bc, bcc, set())
-        s_disc, ev_disc = _score(f"tactic:{name}", spec, dc, dcc, set()) if disc else (0.0, [])
-        tactic_scores[name] = min(1.0, s_body + df * s_disc)
-        evidence += ev_body + [f"damped:{e}" for e in ev_disc]
+    tactic_scores: dict[str, float] = {name: 0.0 for name in TACTICS}
+    if lex.tactics is not None:
+        body_scores = lex.tactics.score_sum(bc, bcc)
+        disc_scores = lex.tactics.score_sum(dc, dcc) if disc else {}
+        for name in TACTICS:
+            s_body, ids_body = body_scores[name]
+            s_disc, ids_disc = disc_scores.get(name, (0.0, []))
+            tactic_scores[name] = min(1.0, s_body + df * s_disc)
+            evidence += [f"tactic:{name}:{i}" for i in ids_body] + [f"damped:tactic:{name}:{i}" for i in ids_disc]
 
     # News / article guard: an article *about* scams is not a scam screen.
     t_c = canon(title)

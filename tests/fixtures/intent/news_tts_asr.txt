@@ -1,0 +1,3 @@
+# Rolling transcript from the run_audio_asr.py TTS news run (whisper_base, CPU), including the ASR join
+# errors "from the CB from the CBI" and "no government agent government agency". Synthetic speech, no real call.
+Good evening. Here are tonight's headlines. Police in Mumbai have warned citizens about a new wave of digital arrest. scams, in which callers pretend to be officers from the CB from the CBI or customs. Victims are told that a parcel is that a parcel in their name contains illegal items and they are kept on a video call for hours. Officials say no governor government agency will ever ask you to transfer money to a safe account.

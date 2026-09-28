@@ -1,0 +1,16 @@
+# Kavach demo script: "CBI digital arrest" scam call. FICTIONAL - every name, number and case id is invented.
+# Caller lines only (the victim's side is silent), one line per utterance, about 90 seconds at a normal pace.
+# Lines starting with '#' are comments and are not spoken. Used for TTS on Day 2.
+Hello, am I speaking with Mr. Arun Mehra? This is Inspector Vikram Rathore from the CBI cyber cell, Mumbai.
+Sir, a FedEx parcel booked in your name was stopped by customs. It contains fake passports and drugs.
+Your Aadhaar card is linked to a money laundering case, and an FIR has been registered against you.
+Aapka aadhaar misuse hua hai. There is an arrest warrant in your name, case number KV zero zero seven.
+From this moment you are under digital arrest. Do not disconnect the call, and stay on video call with your camera on.
+This is a confidential investigation. Don't tell anyone, not even your family. Kisi ko mat batana.
+Do not inform your bank. If you cut the call, local police will come and arrest you within 30 minutes.
+Your bank accounts will be frozen today itself. This is your last warning.
+To prove you are innocent, you must transfer the amount to our RBI safe account for verification.
+It is fully refundable. After verification the money will be returned to you within 24 hours.
+Now install AnyDesk and share your screen, so our officer can guide you step by step.
+Tell me the OTP you just received. Turant transfer karo, abhi ke abhi.
+If you do not cooperate, you will go to jail for seven years. Do you understand me, Mr. Mehra?

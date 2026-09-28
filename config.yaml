@@ -120,6 +120,16 @@ screen_classifier:         # detect/screen_classifier.py; keywords/weights in de
   # screen tactics found in the same sentence/line are multiplied by this.
   disclaimer_factor: 0.2
 
+intent:                    # detect/intent.py (F5): scam tactics in the rolling call transcript
+  lexicon: detect/lexicons/intent.yaml   # shared with screen_classifier (screen.yaml tactics_from)
+  tactic_threshold: 0.5    # a tactic counts (fusion call_tactic) at or above this score
+  fuzzy_threshold: 85      # rapidfuzz score for ASR-garbled phrases ("diggital arrest")
+  fuzzy_min_len: 8         # only patterns with >= this many letters are matched fuzzily; digits never
+  second_person_boost: 1.2 # "you"/"aapka" in the same sentence
+  reporting_factor: 0.25   # "scammers", "police said", "beware"... in the same sentence (news/explainers)
+  repeat_decay: 0.5        # 2nd, 3rd... entry of a tactic counts 0.5, 0.25... (many weak mentions stay weak)
+  max_sentence_words: 30   # unpunctuated ASR text is cut into sentences of at most this many words
+
 fusion:
   # weight = points per hit; decay_s = seconds a hit keeps counting (null = while active); cap = max points
   signals:

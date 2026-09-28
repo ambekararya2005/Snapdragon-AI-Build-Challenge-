@@ -1,0 +1,252 @@
+# Scam-tactic lexicon: the ONE source for call tactics (detect/intent.py) and screen tactics
+# (detect/screen_classifier.py via screen.yaml `tactics_from`). Shared matcher: detect/tactic_lexicon.py.
+#
+# Entry fields:
+#   id        stable evidence id (never transcript/screen text)
+#   tactic    authority | threat | secrecy | urgency | money_move
+#   weight    points when the entry matches (tactic score = combination of entry weights, see below)
+#   where     channels the entry applies to: [call, screen] (default both)
+#   patterns  per script/language:
+#               en       English
+#               hi_latn  romanised Hindi / Hinglish ("arrest ho jayega")
+#               hi_deva  Devanagari Hindi (P1: add entries here; matching already keeps Devanagari letters)
+#   regex     optional raw regexes, matched against the canonical (lowercase) text
+#
+# Matching: patterns are canonicalised like the text. Every pattern matches exactly on word boundaries
+# (punctuation/spaces between words are flexible: "don't" == "dont"). On calls, patterns with >= 8
+# letters also match fuzzily (rapidfuzz partial_ratio >= intent.fuzzy_threshold, aligned to word
+# boundaries) to survive ASR errors ("diggital arrest", "safe acount"). Common ASR spellings of short
+# tokens are listed explicitly ("see bee eye"). A match inside a longer match of the same tactic in the
+# same sentence is not counted twice ("arrest" inside "digital arrest").
+#
+# Entries shared with the screen keep the screen's original weights (0.5; urgency 0.35) so screen
+# scores do not change. Call-only phrasing lives in `where: [call]` entries.
+
+reporting:        # third-person / news / advisory language: same sentence -> weight * intent.reporting_factor
+  en: [scammer, scammers, scam, scams, fraudster, fraudsters, fraud gang, cyber criminals, criminals,
+       victim, victims, police said, police say, officials said, officials say, reported, according to,
+       in this video, beware, warned, warns, warning to citizens, citizens, advisory, awareness,
+       pretend to be, pretending to be, posing as, posed as, impersonating, duped, lost rs, lakh rupees,
+       headlines, news, complaint was filed, how to stay safe, never asks, never ask, will never ask,
+       will ever ask, does not ask, do not fall, report it, helpline, if you receive]
+  hi_latn: [thag, thagon, dhokhebaaz, thagi, khabar]
+  hi_deva: []
+
+second_person:    # addressing the listener in the same sentence -> weight * intent.second_person_boost
+  en: [you, your, yours, yourself]
+  hi_latn: [aap, aapka, aapke, aapki, aapko, aapne, tum, tumhara, tumhare, tumhari, tumko, tera, teri, tujhe]
+  hi_deva: []
+
+entries:
+  # ------------------------------------------------------------------ authority
+  - {id: auth_cbi, tactic: authority, weight: 0.5,
+     patterns: {en: [cbi, central bureau of investigation, see bee eye], hi_latn: [], hi_deva: []}}
+  - {id: auth_police, tactic: authority, weight: 0.5,
+     patterns: {en: [police], hi_latn: [], hi_deva: []}}
+  - {id: auth_cyber_crime, tactic: authority, weight: 0.5,
+     patterns: {en: [cyber crime, cybercrime], hi_latn: [], hi_deva: []}}
+  - {id: auth_cyber_cell, tactic: authority, weight: 0.5, where: [call],
+     patterns: {en: [cyber cell, cyber police, crime branch], hi_latn: [], hi_deva: []}}
+  - {id: auth_ed, tactic: authority, weight: 0.5,
+     patterns: {en: [enforcement directorate], hi_latn: [], hi_deva: []}}
+  - {id: auth_ed_short, tactic: authority, weight: 0.5, where: [call],
+     patterns: {en: [ed department, ed office, ed officer, ed officers], hi_latn: [], hi_deva: []}}
+  - {id: auth_customs, tactic: authority, weight: 0.5,
+     patterns: {en: [customs], hi_latn: [], hi_deva: []}}
+  - {id: auth_income_tax, tactic: authority, weight: 0.5,
+     patterns: {en: [income tax department], hi_latn: [], hi_deva: []}}
+  - {id: auth_income_tax_call, tactic: authority, weight: 0.5, where: [call],
+     patterns: {en: [income tax, income tax officer], hi_latn: [], hi_deva: []}}
+  - {id: auth_rbi, tactic: authority, weight: 0.5,
+     patterns: {en: [rbi, reserve bank], hi_latn: [], hi_deva: []}}
+  - {id: auth_trai, tactic: authority, weight: 0.5,
+     patterns: {en: [trai], hi_latn: [], hi_deva: []}}
+  - {id: auth_telecom, tactic: authority, weight: 0.5, where: [call],
+     patterns: {en: [telecom regulatory authority, department of telecommunications, telecom department],
+                hi_latn: [], hi_deva: []}}
+  - {id: auth_court, tactic: authority, weight: 0.5,
+     patterns: {en: [court], hi_latn: [], hi_deva: []}}
+  - {id: auth_supreme_court, tactic: authority, weight: 0.5,
+     patterns: {en: [supreme court], hi_latn: [], hi_deva: []}}
+  - {id: auth_narcotics, tactic: authority, weight: 0.5,
+     patterns: {en: [narcotics, ncb], hi_latn: [], hi_deva: []}}
+  - {id: auth_ms_support, tactic: authority, weight: 0.5,
+     patterns: {en: [microsoft support], hi_latn: [], hi_deva: []}}
+  - {id: auth_govt, tactic: authority, weight: 0.5,
+     patterns: {en: [government of india, ministry], hi_latn: [], hi_deva: []}}
+  - {id: auth_courier, tactic: authority, weight: 0.25, where: [call],      # courier/parcel pretext
+     patterns: {en: [fedex, dhl, blue dart, courier, parcel, package in your name], hi_latn: [parcel aaya hai],
+                hi_deva: []}}
+  - {id: auth_officer, tactic: authority, weight: 0.25, where: [call],
+     patterns: {en: [officer, inspector, sub inspector, investigating officer, senior officer, commissioner, dcp],
+                hi_latn: [main inspector, main officer, sahab], hi_deva: []}}
+
+  # ------------------------------------------------------------------ threat
+  - {id: threat_arrest, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [arrest, arrested, you will be arrested, non bailable warrant, a rest warrant],
+                hi_latn: [arrest ho jayega, arrest ho jaoge, arrest kar lenge, giraftar, giraftaar], hi_deva: []}}
+  - {id: threat_arrest_warrant, tactic: threat, weight: 0.5,
+     patterns: {en: [arrest warrant], hi_latn: [], hi_deva: []}}
+  - {id: threat_warrant, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [warrant, warrant in your name], hi_latn: [], hi_deva: []}}
+  - {id: threat_digital_arrest, tactic: threat, weight: 0.5,
+     patterns: {en: [digital arrest, under digital arrest], hi_latn: [digital arrest mein], hi_deva: []}}
+  - {id: threat_house_arrest, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [house arrest, virtual arrest], hi_latn: [], hi_deva: []}}
+  - {id: threat_fir, tactic: threat, weight: 0.5, where: [screen],        # bare "fir" means "then" in Hinglish speech
+     patterns: {en: [fir], hi_latn: [], hi_deva: []}}
+  - {id: threat_fir_registered, tactic: threat, weight: 0.5,
+     patterns: {en: [fir registered], hi_latn: [], hi_deva: []}}
+  - {id: threat_case, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [case registered, case has been registered, fir has been registered, fir against you,
+                     complaint registered against you, criminal case, case filed against you],
+                hi_latn: [case darj, fir darj, case register hua hai, aapke upar case], hi_deva: []}}
+  - {id: threat_money_laundering, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [money laundering, hawala, illegal transactions, drug trafficking, illegal items, fake passports,
+                     drugs], hi_latn: [money laundering ka case], hi_deva: []}}
+  - {id: threat_id_misuse, tactic: threat, weight: 0.3, where: [call],
+     patterns: {en: [your aadhaar is linked, aadhaar misuse, your aadhaar card, sim registered in your name],
+                hi_latn: [aapka aadhaar, aadhaar misuse hua hai], hi_deva: []}}
+  - {id: threat_account_blocked, tactic: threat, weight: 0.5,
+     patterns: {en: [account will be blocked, account has been blocked], hi_latn: [], hi_deva: []}}
+  - {id: threat_account_frozen, tactic: threat, weight: 0.5,
+     patterns: {en: [account will be frozen, account frozen], hi_latn: [], hi_deva: []}}
+  - {id: threat_account_suspended, tactic: threat, weight: 0.5,
+     patterns: {en: [account suspended, account will be suspended], hi_latn: [], hi_deva: []}}
+  - {id: threat_account_call, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [accounts will be frozen, bank accounts will be frozen, accounts will be seized, account will be seized],
+                hi_latn: [account block ho jayega, account band ho jayega, account freeze ho jayega], hi_deva: []}}
+  - {id: threat_kyc, tactic: threat, weight: 0.5,
+     patterns: {en: [kyc expired, kyc pending, kyc not updated, update your kyc], hi_latn: [], hi_deva: []}}
+  - {id: threat_disconnect_service, tactic: threat, weight: 0.5,
+     patterns: {en: [will be disconnected, power will be disconnected, electricity will be disconnected],
+                hi_latn: [], hi_deva: []}}
+  - {id: threat_penalty, tactic: threat, weight: 0.5,
+     patterns: {en: [penalty], hi_latn: [], hi_deva: []}}
+  - {id: threat_gst, tactic: threat, weight: 0.5,
+     patterns: {en: [gst notice], hi_latn: [], hi_deva: []}}
+  - {id: threat_legal_action, tactic: threat, weight: 0.5,
+     patterns: {en: [legal action], hi_latn: [kanooni karwai], hi_deva: []}}
+  - {id: threat_device_locked, tactic: threat, weight: 0.5,
+     patterns: {en: [your computer has been locked], hi_latn: [], hi_deva: []}}
+  - {id: threat_data_deleted, tactic: threat, weight: 0.5,
+     patterns: {en: [your data will be deleted], hi_latn: [], hi_deva: []}}
+  - {id: threat_sim_blocked, tactic: threat, weight: 0.5,
+     patterns: {en: [sim will be blocked], hi_latn: [], hi_deva: []}}
+  - {id: threat_sim_call, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [sim card will be blocked, number will be blocked, number will be deactivated, sim will be deactivated],
+                hi_latn: [sim band ho jayega, number band ho jayega], hi_deva: []}}
+  - {id: threat_blocked_today, tactic: threat, weight: 0.5,
+     patterns: {en: [blocked today], hi_latn: [], hi_deva: []}}
+  - {id: threat_jail, tactic: threat, weight: 0.5, where: [call],
+     patterns: {en: [jail, prison, imprisonment, go to jail, police custody],
+                hi_latn: [jail jaoge, jail ho jayegi, andar kar denge], hi_deva: []}}
+
+  # ------------------------------------------------------------------ secrecy
+  - {id: secrecy_tell_anyone, tactic: secrecy, weight: 0.5,
+     patterns: {en: [do not tell anyone, don't tell anyone], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_tell_call, tactic: secrecy, weight: 0.5, where: [call],
+     patterns: {en: [don't tell anybody, do not share this with anyone, don't discuss this with anyone, keep it secret,
+                     this is confidential, not even your family],
+                hi_latn: [kisi ko mat batana, kisi ko nahi batana, kisi se baat mat karna, kisi ko mat bolna], hi_deva: []}}
+  - {id: secrecy_share_family, tactic: secrecy, weight: 0.5,
+     patterns: {en: [do not share with family], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_confidential, tactic: secrecy, weight: 0.5,
+     patterns: {en: [keep this confidential], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_investigation, tactic: secrecy, weight: 0.5,
+     patterns: {en: [confidential investigation], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_investigation_call, tactic: secrecy, weight: 0.5, where: [call],
+     patterns: {en: [secret investigation, national security matter, matter of national security], hi_latn: [],
+                hi_deva: []}}
+  - {id: secrecy_disconnect, tactic: secrecy, weight: 0.5,
+     patterns: {en: [do not disconnect the call], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_disconnect_call, tactic: secrecy, weight: 0.5, where: [call],
+     patterns: {en: [don't disconnect the call, do not cut the call, don't cut the call, don't hang up, do not hang up,
+                     if you cut the call, if you disconnect],
+                hi_latn: [call mat kaatna, call mat katna, call cut mat karna, phone mat rakhna, phone mat kaatna],
+                hi_deva: []}}
+  - {id: secrecy_stay_on_call, tactic: secrecy, weight: 0.5,
+     patterns: {en: [stay on the call], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_video, tactic: secrecy, weight: 0.5, where: [call],
+     patterns: {en: [stay on video call, stay on the video call, keep your camera on, do not leave the room,
+                     don't leave the room], hi_latn: [video call on rakhna, camera on rakhna, room se bahar mat jana],
+                hi_deva: []}}
+  - {id: secrecy_do_not_inform, tactic: secrecy, weight: 0.5,
+     patterns: {en: [do not inform], hi_latn: [], hi_deva: []}}
+  - {id: secrecy_inform_call, tactic: secrecy, weight: 0.5, where: [call],
+     patterns: {en: [don't inform your family, don't inform the bank, don't inform your bank, don't tell your family,
+                     don't go to the bank, don't tell the bank],
+                hi_latn: [ghar walon ko mat batana, family ko mat batana, bank ko mat batana], hi_deva: []}}
+
+  # ------------------------------------------------------------------ urgency (0.35: one alone stays below 0.5)
+  - {id: urg_immediately, tactic: urgency, weight: 0.35,
+     patterns: {en: [immediately], hi_latn: [], hi_deva: []}}
+  - {id: urg_urgent, tactic: urgency, weight: 0.35,
+     patterns: {en: [urgent, urgently], hi_latn: [], hi_deva: []}}
+  - {id: urg_within_24h, tactic: urgency, weight: 0.35,
+     patterns: {en: [within 24 hours], hi_latn: [], hi_deva: []}}
+  - {id: urg_within_2h, tactic: urgency, weight: 0.35,
+     patterns: {en: [within 2 hours], hi_latn: [], hi_deva: []}}
+  - {id: urg_within_minutes, tactic: urgency, weight: 0.35, where: [call],
+     patterns: {en: [within thirty minutes, within half an hour, within one hour, within an hour],
+                hi_latn: [aadhe ghante mein, ek ghante mein, 30 minute mein], hi_deva: []},
+     regex: ['within (\d+|ten|fifteen|twenty|thirty|forty|forty five|sixty) (minutes?|hours?)']}
+  - {id: urg_tonight, tactic: urgency, weight: 0.35,
+     patterns: {en: [tonight], hi_latn: [aaj raat tak], hi_deva: []}}
+  - {id: urg_today_itself, tactic: urgency, weight: 0.35,
+     patterns: {en: [today itself], hi_latn: [aaj hi], hi_deva: []}}
+  - {id: urg_last_warning, tactic: urgency, weight: 0.35,
+     patterns: {en: [last warning], hi_latn: [aakhri warning], hi_deva: []}}
+  - {id: urg_final, tactic: urgency, weight: 0.35, where: [call],
+     patterns: {en: [final warning, last chance], hi_latn: [last chance hai], hi_deva: []}}
+  - {id: urg_final_notice, tactic: urgency, weight: 0.35,
+     patterns: {en: [final notice], hi_latn: [], hi_deva: []}}
+  - {id: urg_act_now, tactic: urgency, weight: 0.35,
+     patterns: {en: [act now], hi_latn: [], hi_deva: []}}
+  - {id: urg_expires_today, tactic: urgency, weight: 0.35,
+     patterns: {en: [expires today], hi_latn: [], hi_deva: []}}
+  - {id: urg_right_now, tactic: urgency, weight: 0.35,
+     patterns: {en: [right now], hi_latn: [abhi ke abhi], hi_deva: []}}
+  - {id: urg_turant, tactic: urgency, weight: 0.35, where: [call],
+     patterns: {en: [at once, as soon as possible], hi_latn: [turant, jaldi karo, jaldi kijiye], hi_deva: []}}
+  - {id: urg_before_time, tactic: urgency, weight: 0.35,
+     patterns: {en: [before 9 pm, before 9:30 pm], hi_latn: [], hi_deva: []}}
+
+  # ------------------------------------------------------------------ money_move
+  # Strong scam phrases only: generic banking words (refund, beneficiary, transfer) appear on every
+  # genuine bank page and in genuine calls.
+  - {id: money_safe_account, tactic: money_move, weight: 0.5,
+     patterns: {en: [safe account, secure account, rbi account, rbi safe account], hi_latn: [safe account mein],
+                hi_deva: []}}
+  - {id: money_safe_account_call, tactic: money_move, weight: 0.5, where: [call],
+     patterns: {en: [government account, supervision account, secret supervision account, escrow account],
+                hi_latn: [safe account me daalo], hi_deva: []}}
+  - {id: money_transfer_rbi, tactic: money_move, weight: 0.5,
+     patterns: {en: [transfer to rbi], hi_latn: [], hi_deva: []}}
+  - {id: money_fee, tactic: money_move, weight: 0.5,
+     patterns: {en: [verification fee, security fee], hi_latn: [], hi_deva: []}}
+  - {id: money_pay_unblock, tactic: money_move, weight: 0.5,
+     patterns: {en: [pay to unblock, pay to reactivate, pay to unlock], hi_latn: [], hi_deva: []}}
+  - {id: money_gift_card, tactic: money_move, weight: 0.5,
+     patterns: {en: [gift card payment, pay with gift card, buy gift cards], hi_latn: [], hi_deva: []}}
+  - {id: money_avoid_arrest, tactic: money_move, weight: 0.5,
+     patterns: {en: [transfer to avoid arrest], hi_latn: [], hi_deva: []}}
+  - {id: money_bank_app, tactic: money_move, weight: 0.5,
+     patterns: {en: [keep your bank app ready], hi_latn: [], hi_deva: []}}
+  - {id: money_verification, tactic: money_move, weight: 0.5, where: [call],
+     patterns: {en: [verification transfer, for verification, fund verification, verify your funds, fully refundable,
+                     refundable, returned after verification, money will be returned],
+                hi_latn: [verification ke liye, paisa wapas mil jayega], hi_deva: []}}
+  - {id: money_transfer, tactic: money_move, weight: 0.45, where: [call],
+     patterns: {en: [transfer the amount, transfer the money, transfer all your money, transfer your savings,
+                     transfer your funds, make the payment now],
+                hi_latn: [turant transfer karo, paise transfer karo, paisa bhejo, amount transfer kijiye], hi_deva: []}}
+  - {id: money_otp, tactic: money_move, weight: 0.5, where: [call],
+     patterns: {en: [share the otp, share otp, share your otp, tell me the otp, read the otp, read out the otp,
+                     share your pin, tell me your pin, tell me your cvv],
+                hi_latn: [otp batao, otp bataiye, otp share karo, otp bolo], hi_deva: []}}
+  # Remote access alone is weak on purpose: genuine IT support uses AnyDesk too. The remote_tool
+  # fusion signal already covers the tool itself.
+  - {id: money_remote_access, tactic: money_move, weight: 0.15, where: [call],
+     patterns: {en: [anydesk, any desk, teamviewer, team viewer, quick support, rustdesk, install anydesk,
+                     share your screen, share screen, screen share], hi_latn: [], hi_deva: []}}

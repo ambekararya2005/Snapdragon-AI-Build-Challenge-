@@ -202,6 +202,10 @@ class RollingTranscript:
             self._items.popleft()
         return " ".join(words)
 
+    def segments(self, source: str | None = None) -> list[tuple[float, float, str, str]]:
+        """[(ts_start, ts_end, source, text)] oldest first (input for detect.intent.detect)."""
+        return [(a, b, s, " ".join(w)) for a, b, s, w in self._items if w and (source is None or s == source)]
+
     def text(self, source: str | None = None) -> str:
         return " ".join(" ".join(w) for _, _, s, w in self._items if source is None or s == source)
 

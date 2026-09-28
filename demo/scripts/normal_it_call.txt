@@ -1,0 +1,12 @@
+# Kavach demo script: genuine IT support call over AnyDesk (no scam tactics). FICTIONAL names.
+# Support agent's lines only, about 60 seconds. Lines starting with '#' are comments and are not spoken.
+Hi Priya, this is Rahul from the company IT help desk, calling about the printer ticket you raised this morning.
+Is this a good time to take a look? It should only take a few minutes.
+I'll connect using AnyDesk, the same tool we used last month. Please open it from the Start menu.
+Can you read me the nine digit address shown on the left? Thanks, I've sent a request, please click accept.
+Okay, I can see your desktop. The print spooler service has stopped, so I'll restart it.
+While I'm connected, I'll also update the printer driver from the company software portal.
+Could you print a test page for me? Great, that worked.
+I'm closing the AnyDesk session now, so you'll see the connection end on your side.
+If the problem comes back, just raise another ticket on the portal and we'll pick it up.
+Thanks for your patience, Priya. Have a good day.

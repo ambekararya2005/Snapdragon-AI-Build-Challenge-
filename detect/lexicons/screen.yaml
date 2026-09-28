@@ -90,51 +90,10 @@ labels:
       - {id: brand_with_phone, weight: 0.3, all_of: ["group:brand", "pattern:phone_any"]}
       - {id: alert_with_phone, weight: 0.2, all_of: ["group:alert", "pattern:phone_any"]}
 
-# Scam tactics on screen (fusion weights them per tactic). Same term/weight format.
-tactics:
-  authority:
-    groups:
-      authority:
-        weight: 0.5
-        max_hits: 2
-        terms: [police, cyber crime, cybercrime, cbi, enforcement directorate, customs, income tax department,
-                rbi, reserve bank, trai, court, supreme court, narcotics, ncb, microsoft support,
-                government of india, ministry]
-  threat:
-    groups:
-      threat:
-        weight: 0.5
-        max_hits: 3
-        terms: [account will be blocked, account has been blocked, account will be frozen, account frozen,
-                account suspended, account will be suspended, kyc expired, kyc pending, kyc not updated,
-                update your kyc, will be disconnected, power will be disconnected, electricity will be disconnected,
-                penalty, gst notice, arrest warrant, digital arrest, legal action, fir, fir registered,
-                your computer has been locked, your data will be deleted, sim will be blocked, blocked today]
-  secrecy:
-    groups:
-      secrecy:
-        weight: 0.5
-        max_hits: 2
-        terms: [do not tell anyone, don't tell anyone, do not share with family, keep this confidential,
-                confidential investigation, do not disconnect the call, stay on the call, do not inform]
-  urgency:
-    groups:
-      urgency:
-        weight: 0.35
-        max_hits: 3
-        terms: [immediately, urgent, urgently, within 24 hours, within 2 hours, tonight, today itself,
-                last warning, final notice, act now, expires today, right now, before 9 pm, before 9:30 pm]
-  money_move:
-    # Strong scam phrases only. Generic banking words (refund, customer care, beneficiary, transfer)
-    # appear on every genuine bank page and must not become a screen tactic.
-    groups:
-      money_move:
-        weight: 0.5
-        max_hits: 2
-        terms: [safe account, secure account, rbi account, transfer to rbi, rbi safe account,
-                verification fee, security fee, pay to unblock, pay to reactivate, pay to unlock,
-                gift card payment, pay with gift card, buy gift cards, transfer to avoid arrest,
-                keep your bank app ready]
+# Scam tactics on screen come from the shared tactic lexicon (entries with `where` including screen),
+# the same source as call transcripts (detect/intent.py), matched by detect/tactic_lexicon.py.
+# Evidence ids are "tactic:<tactic>:<entry id>".
+tactics_from: detect/lexicons/intent.yaml
 
 # Bank anti-fraud notices on genuine bank sites. Screen tactics found in the same sentence/line as
 # one of these are multiplied by screen_classifier.disclaimer_factor (evidence "bank_disclaimer").
