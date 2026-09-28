@@ -1,0 +1,83 @@
+# Kavach configuration. Override path with KAVACH_CONFIG, provider with KAVACH_PROVIDER.
+
+runtime:
+  provider: dml            # qnn | cuda | dml | cpu
+  fallback_to_cpu: true    # if the provider is unavailable, use CPU and log a warning
+  log_latency: true
+  qnn:
+    backend_path: QnnHtp.dll
+    htp_performance_mode: burst
+    enable_htp_fp16_precision: "1"
+  dml:
+    device_id: 0
+  cuda:
+    device_id: 0
+
+privacy:
+  debug_show_text: false   # if true, logs/dashboard may show OCR text and transcripts
+  write_raw_to_disk: false # MUST stay false; the config loader errors if true
+
+processes:
+  poll_interval_s: 2.0
+  known_tools:
+    - name: AnyDesk
+      exe_names: [AnyDesk.exe]
+    - name: TeamViewer
+      exe_names: [TeamViewer.exe, TeamViewer_Service.exe]
+    - name: RustDesk
+      exe_names: [rustdesk.exe]
+    - name: Quick Assist
+      exe_names: [QuickAssist.exe]
+    - name: UltraViewer
+      exe_names: [UltraViewer_Desktop.exe, UltraViewer_Service.exe]
+    - name: AnyViewer
+      exe_names: [AnyViewer.exe, RCClient.exe]
+    - name: HopToDesk
+      exe_names: [HopToDesk.exe]
+    - name: ScreenConnect
+      exe_names: [ScreenConnect.ClientService.exe, ScreenConnect.WindowsClient.exe]
+    - name: Supremo
+      exe_names: [Supremo.exe]
+    - name: AweSun
+      exe_names: [AweSun.exe]
+    - name: Ammyy
+      exe_names: [AA_v3.exe]
+  extra_exe_names: []      # for testing, e.g. [notepad.exe]
+
+screen:
+  interval_s: 2.5
+  change_threshold: 4.0    # mean abs pixel diff needed to re-run OCR
+  force_on_title_change: true
+  exclude_title_prefixes: ["Kavach"]
+  max_side: 1920
+
+ocr:
+  backend: rapidocr        # rapidocr | native
+  min_confidence: 0.5
+  det_model: weights/ocr/det.onnx
+  rec_model: weights/ocr/rec.onnx
+  keys: weights/ocr/keys.txt
+  det_input_hw: [736, 1280]
+  rec_input_hw: [48, 320]
+  rec_batch: 8
+
+audio:                     # placeholders for later
+  chunk_s: 5
+  sample_rate: 16000
+
+fusion:
+  # weight = points per hit; decay_s = seconds a hit keeps counting (null = while active); cap = max points
+  signals:
+    remote_tool:  {weight: 30, decay_s: null, cap: 30}   # counts while the tool is running
+    money_screen: {weight: 25, decay_s: 120,  cap: 25}
+    otp_card:     {weight: 20, decay_s: 120,  cap: 20}
+    fake_alert:   {weight: 15, decay_s: 120,  cap: 30}   # per tactic
+    call_tactic:  {weight: 10, decay_s: 180,  cap: 40}   # per tactic
+    combo_bonus:  {weight: 20, decay_s: null, cap: 20}
+  bands:
+    caution: 50
+    alert: 70
+
+logging:
+  level: INFO
+  dir: logs/

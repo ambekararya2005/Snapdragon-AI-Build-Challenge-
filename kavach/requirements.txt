@@ -1,0 +1,23 @@
+# Kavach runtime + dev requirements (Python 3.11).
+#
+# onnxruntime is deliberately NOT listed here. Only one onnxruntime package may be installed
+# at a time (onnxruntime, onnxruntime-directml, onnxruntime-gpu and onnxruntime-qnn conflict),
+# so it is installed separately per machine:
+#   dev (Windows x64, Ryzen + RTX)  -> onnxruntime-directml   (scripts\setup_dev.ps1 does this)
+#   Snapdragon X (native ARM64 Python) -> onnxruntime-qnn
+#   fallback                        -> onnxruntime
+# rapidocr_onnxruntime depends on plain `onnxruntime`; setup_dev.ps1 removes it afterwards
+# and installs the right package last.
+
+numpy==2.4.6
+PyYAML==6.0.3
+psutil==7.2.2
+mss==10.2.0
+pywin32==312
+opencv-python==5.0.0.93
+pillow==12.3.0
+pyclipper==1.4.0
+shapely==2.1.2
+onnx==1.23.0
+pytest==9.1.1
+rapidocr_onnxruntime==1.4.4

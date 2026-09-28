@@ -1,0 +1,7 @@
+.venv/
+weights/
+__pycache__/
+*.onnx
+*.bin
+logs/
+.pytest_cache/
