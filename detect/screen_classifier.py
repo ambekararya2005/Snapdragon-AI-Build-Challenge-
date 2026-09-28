@@ -41,7 +41,7 @@ TOP_PRIORITY = ("fake_alert", "otp_card", "upi_payment", "bank")  # tie-break or
 BROWSERS = {"chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe"}
 DEFAULTS = {"lexicon": "detect/lexicons/screen.yaml", "label_threshold": 0.5, "tactic_threshold": 0.5,
             "news_min_hits": 2, "news_factor": 0.3, "compact_min_len": 6,
-            "news_reduces": ["fake_alert", *TACTICS]}
+            "news_reduces": ["fake_alert", *TACTICS], "disclaimer_factor": 0.2}
 
 
 @dataclass
@@ -173,6 +173,7 @@ class Lexicon:
     tactics: dict[str, _Spec]
     news_sites: list[_Term]
     news_words: list[_Term]
+    disclaimer: list[_Term] = field(default_factory=list)
 
 
 def _compile_term(term: str, compact_min_len: int) -> _Term:
@@ -199,7 +200,27 @@ def load_lexicon(path: str, compact_min_len: int) -> Lexicon:
         tactics={k: _compile_spec(v, compact_min_len) for k, v in raw.get("tactics", {}).items()},
         news_sites=[_compile_term(t, compact_min_len) for t in news.get("sites", [])],
         news_words=[_compile_term(t, compact_min_len) for t in news.get("words", [])],
+        disclaimer=[_compile_term(t, compact_min_len) for t in (raw.get("bank_disclaimer") or {}).get("terms", [])],
     )
+
+
+_SENTENCE_SPLIT = re.compile(r"\n|(?<=[.!?])\s+")
+
+
+def split_disclaimer(raw: str, terms: list[_Term]) -> tuple[str, str, list[str]]:
+    """(text outside disclaimers, text of disclaimer sentences, disclaimer slugs found).
+
+    Sentences/lines are OCR rows or '.', '!', '?' boundaries; a sentence is a disclaimer when it
+    contains a bank anti-fraud notice term."""
+    keep, disc, found = [], [], set()
+    for seg in _SENTENCE_SPLIT.split(raw):
+        c = canon(seg)
+        if not c:
+            continue
+        hits = _hits(terms, c, compact(c)) if terms else []
+        (disc if hits else keep).append(seg)
+        found.update(hits)
+    return "\n".join(keep), "\n".join(disc), sorted(found)
 
 
 def _hits(terms: Iterable[_Term], canon_text: str, compact_text: str) -> list[str]:
@@ -282,12 +303,25 @@ def classify(ocr_result: Any, window_info: Any = None, config: Mapping | None = 
         score, ev = _score(name, spec, c, cc, patterns) if spec else (0.0, [])
         labels[name] = score
         evidence += ev
+    # Screen tactics: sentences that are bank anti-fraud notices ("never share your OTP",
+    # "regulated by RBI") count only disclaimer_factor as much.
+    body, disc, disc_found = split_disclaimer(raw, lex.disclaimer)
+    bc, dc = canon(body), canon(disc)
+    bcc, dcc = compact(bc), compact(dc)
+    df = float(cfg["disclaimer_factor"])
+    if disc_found:
+        evidence.append("bank_disclaimer")
+        evidence += [f"disclaimer:{h}" for h in disc_found]
     tactic_scores: dict[str, float] = {}
     for name in TACTICS:
         spec = lex.tactics.get(name)
-        score, ev = _score(f"tactic:{name}", spec, c, cc, set()) if spec else (0.0, [])
-        tactic_scores[name] = score
-        evidence += ev
+        if not spec:
+            tactic_scores[name] = 0.0
+            continue
+        s_body, ev_body = _score(f"tactic:{name}", spec, bc, bcc, set())
+        s_disc, ev_disc = _score(f"tactic:{name}", spec, dc, dcc, set()) if disc else (0.0, [])
+        tactic_scores[name] = min(1.0, s_body + df * s_disc)
+        evidence += ev_body + [f"damped:{e}" for e in ev_disc]
 
     # News / article guard: an article *about* scams is not a scam screen.
     t_c = canon(title)
@@ -330,6 +364,27 @@ def format_label(label: ScreenLabel, min_score: float = 0.1) -> str:
     return f"top={label.top_label:<11} {scores}  tactics={tactics}{news}  ({label.ms:.1f} ms)"
 
 
+def fusion_preview(label: ScreenLabel, signals: Mapping | None = None, threshold: float = 0.5) -> int:
+    """Preview of the screen's fusion points (the real fusion module adds decay, calls, combos):
+    money_screen if bank or upi_payment >= threshold, + otp_card if >= threshold,
+    + fake_alert weight per screen tactic, capped. Weights from config fusion.signals."""
+    if signals is None:
+        try:
+            from kavach_config import get_config
+            signals = get_config().fusion.signals
+        except Exception:
+            signals = {}
+    def w(name: str, default: int, key: str = "weight") -> int:
+        return int((signals.get(name) or {}).get(key, default))
+    pts = 0
+    if label.labels.get("bank", 0) >= threshold or label.labels.get("upi_payment", 0) >= threshold:
+        pts += w("money_screen", 25)
+    if label.labels.get("otp_card", 0) >= threshold:
+        pts += w("otp_card", 20)
+    pts += min(w("fake_alert", 15) * len(label.screen_tactics), w("fake_alert", 30, "cap"))
+    return pts
+
+
 def _main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m detect.screen_classifier", description="Screen classifier self-test")
     p.add_argument("files", nargs="*", help="OCR-like text files (default: tests/fixtures/screen/*.txt)")
@@ -340,7 +395,7 @@ def _main(argv: list[str] | None = None) -> int:
         text = f.read_text(encoding="utf-8")
         title, _, body = text.partition("\n") if text.startswith("TITLE:") else ("", "", text)
         label = classify(body, {"title": title.removeprefix("TITLE:").strip(), "process_name": "chrome.exe"})
-        print(f"{f.name:<28} {format_label(label)}")
+        print(f"{f.name:<28} fusion={fusion_preview(label):>3}  {format_label(label)}")
         if args.evidence:
             print("    " + ", ".join(label.evidence))
     return 0

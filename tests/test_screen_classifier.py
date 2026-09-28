@@ -22,11 +22,59 @@ def run(name: str, **cfg) -> C.ScreenLabel:
 # ---------------------------------------------------------------- fixtures
 
 def test_bank_transfer():
+    # Mirrors demo/test_pages/mock_bank_transfer.html: a GENUINE-looking bank page (the scam comes from the call).
     r = run("bank_transfer")
     assert {"bank", "otp_card"} <= set(r.present)
     assert "fake_alert" not in r.present
-    assert {"pattern:ifsc", "pattern:amount"} <= set(r.evidence)
-    assert "money_move" in r.screen_tactics                     # "Refund Desk" beneficiary
+    assert {"pattern:ifsc", "pattern:amount", "bank_disclaimer"} <= set(r.evidence)
+    assert not r.screen_tactics
+    assert C.fusion_preview(r) == 45                            # 25 money screen + 20 OTP, no tactics
+
+
+def test_genuine_netbanking_has_no_tactics():
+    r = run("genuine_netbanking")
+    assert {"bank", "otp_card"} <= set(r.present)
+    assert not r.screen_tactics and "fake_alert" not in r.present
+    assert {"bank_disclaimer", "disclaimer:dicgc", "disclaimer:grievance_redressal"} <= set(r.evidence)
+    # tactic words inside the anti-fraud notices were found but damped
+    assert any(e.startswith("damped:tactic:authority") for e in r.evidence)
+    assert any(e.startswith("damped:tactic:urgency") for e in r.evidence)      # "report immediately"
+
+
+def test_disclaimer_only_damps_its_own_sentence():
+    text = "Never share your OTP with anyone. Your account will be blocked today, act now within 24 hours."
+    r = C.classify(text)
+    assert {"threat", "urgency"} <= r.screen_tactics            # the scam sentence still counts
+    assert "bank_disclaimer" in r.evidence
+    r = C.classify("Never share your OTP. Beware of fraudulent calls from police or RBI officials.")
+    assert not r.screen_tactics
+
+
+def test_disclaimer_factor_is_configurable():
+    r = run("genuine_netbanking", disclaimer_factor=1.0)
+    assert "authority" in r.screen_tactics                      # undamped, RBI/police lines would count
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Refund desk  customer care refund processing  refund initiated", False),
+    ("Transfer the money to a safe account for verification", True),
+    ("Pay the security fee to unlock your PC", True),
+    ("Pay to unblock your account", True),
+    ("Buy gift cards and share the codes", True),
+])
+def test_money_move_needs_strong_phrases(text, expected):
+    assert ("money_move" in C.classify(text).screen_tactics) is expected
+
+
+def test_fusion_preview():
+    lbl = C.ScreenLabel({"bank": 0.9, "upi_payment": 0, "otp_card": 0.6, "fake_alert": 0, "normal": 0.1},
+                        "bank", frozenset({"threat", "urgency", "secrecy"}), [], 0.0)
+    assert C.fusion_preview(lbl, signals={}) == 25 + 20 + 30   # tactics capped at 30
+    lbl.labels["otp_card"] = 0.49                               # below 0.5 does not count
+    lbl.screen_tactics = frozenset({"threat"})
+    assert C.fusion_preview(lbl, signals={}) == 25 + 15
+    assert C.fusion_preview(run("gmail_inbox")) == 0
+    assert C.fusion_preview(run("fake_kyc")) == 75
 
 
 def test_fake_kyc():

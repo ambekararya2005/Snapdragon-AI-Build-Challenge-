@@ -1,0 +1,20 @@
+TITLE: State Bank of India - Personal Banking - Fund Transfer - Google Chrome
+SBI  Personal Banking  |  My Accounts & Profile  Payments / Transfers  e-Services  Logout
+Never share your OTP, PIN, CVV or password with anyone. SBI will never ask for these details over phone, SMS or email.
+Beware of fraudulent calls claiming to be from RBI, police or bank officials.
+Welcome, ARYA  Last login: 28-09-2026 21:14 IST
+Fund Transfer  >  Other Bank (NEFT / IMPS / RTGS)
+Debit Account  Savings Account  XXXXXXX4821  Available Balance  ₹1,04,250.OO
+Select Beneficiary  Priya Sharma - HDFC Bank - XXXX9012
+IFSC  HDFC0001234
+Amount  ₹ 5,000.00
+Purpose  Rent
+Remarks  Sept rent
+An OTP has been sent to your registered mobile number XXXXXX7788. Enter OTP to confirm.
+Enter OTP  Resend OTP
+Submit  Reset
+Your session will expire in 5 minutes of inactivity.
+Report fraud: If you notice any unauthorised transaction, report immediately at 1800 1234 or 1930 / cybercrime.gov.in
+Customer Care: 1800 11 2211 (toll free)  |  Grievance Redressal  |  Safe Banking Tips
+State Bank of India is regulated by the Reserve Bank of India (RBI). Deposits are insured by DICGC as per applicable limits.
+Privacy Statement  Disclosure  Terms of Service  © State Bank of India

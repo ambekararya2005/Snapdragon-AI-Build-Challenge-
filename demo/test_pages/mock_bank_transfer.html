@@ -12,11 +12,11 @@
   header { background: var(--brand); color: #fff; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; }
   header .logo { font-size: 22px; font-weight: 700; }
   header nav span { margin-left: 24px; opacity: .9; }
-  main { max-width: 760px; margin: 32px auto; padding: 0 16px; }
-  .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 28px 32px; }
+  main { max-width: 760px; margin: 16px auto; padding: 0 16px; }
+  .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 20px 32px; }
   h1 { margin: 0 0 4px; font-size: 26px; }
   .sub { color: var(--muted); margin: 0 0 24px; }
-  .row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: center; margin-bottom: 12px; }
   label { font-weight: 600; }
   input, select { font: inherit; padding: 9px 11px; border: 1px solid #b9c2cf; border-radius: 5px; width: 100%; }
   .balance { background: #f4f7fb; border-left: 4px solid var(--brand); padding: 10px 14px; margin-bottom: 22px; }
@@ -26,6 +26,7 @@
   button { font: inherit; font-weight: 600; padding: 10px 22px; border-radius: 5px; border: 1px solid var(--brand); cursor: pointer; }
   .primary { background: var(--brand); color: #fff; }
   .secondary { background: #fff; color: var(--brand); }
+  .notice { background: #fff8e1; border: 1px solid #f0c36d; border-radius: 6px; padding: 5px 12px; margin-bottom: 10px; font-size: 13px; }
   footer { text-align: center; color: var(--muted); font-size: 13px; margin: 28px 0; }
   @media (max-width: 600px) { .row { grid-template-columns: 1fr; } header nav { display: none; } }
 </style>
@@ -37,6 +38,7 @@
     <nav><span>Accounts</span><span>Transfer funds</span><span>Cards</span><span>Logout</span></nav>
   </header>
   <main>
+    <div class="notice">Demo Bank will never ask for your OTP, PIN or password · Beware of fraudulent calls</div>
     <div class="card">
       <h1>Transfer funds</h1>
       <p class="sub">Send money to a beneficiary using IMPS / NEFT</p>
@@ -44,13 +46,13 @@
       <div class="balance">From account: Savings XXXX 4821 &nbsp;·&nbsp; Available balance: ₹ 2,48,350.00</div>
 
       <form onsubmit="return false">
-        <div class="row"><label for="ben">Beneficiary name</label><input id="ben" value="Rahul Verma (Refund Desk)"></div>
+        <div class="row"><label for="ben">Beneficiary name</label><input id="ben" value="Rahul Verma"></div>
         <div class="row"><label for="acc">Account number</label><input id="acc" value="50100 2233 4455"></div>
         <div class="row"><label for="ifsc">IFSC</label><input id="ifsc" value="DEMO0001234"></div>
         <div class="row"><label for="amt">Amount (₹)</label><input id="amt" value="49,999"></div>
         <div class="row"><label for="mode">Transfer mode</label>
           <select id="mode"><option>IMPS (instant)</option><option>NEFT</option></select></div>
-        <div class="row"><label for="rem">Remarks</label><input id="rem" value="Customer care refund processing"></div>
+        <div class="row"><label for="rem">Remarks</label><input id="rem" value="Family support"></div>
 
         <div class="otp">
           <p>An OTP has been sent to your registered mobile number ending 7788.</p>
@@ -63,7 +65,8 @@
         </div>
       </form>
     </div>
-    <footer>DEMO – NOT A REAL BANK. Static test page for the Kavach scam shield; it sends nothing anywhere.</footer>
+    <footer>Customer care: 1800 000 0000 (toll free, fictional) · Grievance redressal · Report fraud<br>
+      DEMO – NOT A REAL BANK. Static test page for the Kavach scam shield; it sends nothing anywhere.</footer>
   </main>
 </body>
 </html>
