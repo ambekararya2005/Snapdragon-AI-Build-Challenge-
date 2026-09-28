@@ -75,6 +75,16 @@ def test_fusion_preview():
     assert C.fusion_preview(lbl, signals={}) == 25 + 15
     assert C.fusion_preview(run("gmail_inbox")) == 0
     assert C.fusion_preview(run("fake_kyc")) == 75
+    assert C.fusion_preview(run("fake_virus_alert")) == 20 + 30  # fake_alert label + tactics capped
+
+
+def test_fusion_preview_fake_alert_label():
+    lbl = C.ScreenLabel({"bank": 0, "upi_payment": 0, "otp_card": 0, "fake_alert": 0.5, "normal": 0.5},
+                        "fake_alert", frozenset(), [], 0.0)
+    assert C.fusion_preview(lbl, signals={}) == 20
+    lbl.labels["fake_alert"] = 0.49
+    assert C.fusion_preview(lbl, signals={}) == 0
+    assert C.fusion_preview(lbl, signals={"fake_alert_label": {"weight": 40, "cap": 25}}, threshold=0.4) == 25
 
 
 def test_fake_kyc():

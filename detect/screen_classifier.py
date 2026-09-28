@@ -367,6 +367,7 @@ def format_label(label: ScreenLabel, min_score: float = 0.1) -> str:
 def fusion_preview(label: ScreenLabel, signals: Mapping | None = None, threshold: float = 0.5) -> int:
     """Preview of the screen's fusion points (the real fusion module adds decay, calls, combos):
     money_screen if bank or upi_payment >= threshold, + otp_card if >= threshold,
+    + fake_alert_label if the fake_alert label >= threshold,
     + fake_alert weight per screen tactic, capped. Weights from config fusion.signals."""
     if signals is None:
         try:
@@ -381,6 +382,8 @@ def fusion_preview(label: ScreenLabel, signals: Mapping | None = None, threshold
         pts += w("money_screen", 25)
     if label.labels.get("otp_card", 0) >= threshold:
         pts += w("otp_card", 20)
+    if label.labels.get("fake_alert", 0) >= threshold:
+        pts += min(w("fake_alert_label", 20), w("fake_alert_label", 20, "cap"))
     pts += min(w("fake_alert", 15) * len(label.screen_tactics), w("fake_alert", 30, "cap"))
     return pts
 

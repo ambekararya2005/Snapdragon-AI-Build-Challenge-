@@ -81,9 +81,17 @@ ocr:
   rec_buckets: [320, 640, 1280]
   rec_batch: {320: 8, 640: 8, 1280: 4}   # per-bucket static batch size (an int applies to all buckets)
 
-audio:                     # placeholders for later
-  chunk_s: 5
-  sample_rate: 16000
+audio:                     # capture/audio.py: system audio (WASAPI loopback) -> mono chunks for ASR; RAM only
+  sample_rate: 16000       # ASR input rate; the device's native rate is resampled to this
+  chunk_s: 5               # chunk length in seconds
+  overlap_s: 1.0           # each chunk repeats the last overlap_s of the previous one (phrases not cut)
+  silence_rms: 0.005       # chunks below this RMS (full scale 1.0, ~ -46 dBFS) are is_speech=False, not sent to ASR
+  vad_frame_ms: 30         # speech check: a frame is voiced if RMS >= silence_rms and its zero-crossing
+  vad_zcr: [0.01, 0.25]    #   rate is in this range (white noise ~0.5)
+  vad_min_voiced: 0.1      #   and is_speech needs at least this fraction of voiced frames
+  capture_mic: false       # also capture the default microphone as a separate source="mic" stream
+  device_check_s: 10       # check for a new default output/input device (reopen streams on change)
+  retry_s: 5               # retry interval after device errors
 
 screen_classifier:         # detect/screen_classifier.py; keywords/weights in detect/lexicons/screen.yaml
   lexicon: detect/lexicons/screen.yaml
@@ -106,6 +114,7 @@ fusion:
     money_screen: {weight: 25, decay_s: 120,  cap: 25}
     otp_card:     {weight: 20, decay_s: 120,  cap: 20}
     fake_alert:   {weight: 15, decay_s: 120,  cap: 30}   # per tactic
+    fake_alert_label: {weight: 20, decay_s: 120, cap: 20}   # screen label fake_alert >= 0.5
     call_tactic:  {weight: 10, decay_s: 180,  cap: 40}   # per tactic
     combo_bonus:  {weight: 20, decay_s: null, cap: 20}
   bands:
