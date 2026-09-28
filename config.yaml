@@ -20,10 +20,14 @@ privacy:
 processes:
   poll_interval_s: 2.0
   known_tools:
+    # idle_args: a current-user process whose cmdline has one of these is role "tray"
+    # (installed / idle, not live remote access). Matched per argument, case-insensitive.
     - name: AnyDesk
       exe_names: [AnyDesk.exe]
+      idle_args: ["--service", "--control", "--tray", "--backend"]
     - name: TeamViewer
       exe_names: [TeamViewer.exe, TeamViewer_Service.exe]
+      idle_args: []
     - name: RustDesk
       exe_names: [rustdesk.exe]
     - name: Quick Assist
