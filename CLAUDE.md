@@ -25,6 +25,10 @@ and fuses these signals into a risk score that triggers a full-screen warning.
 - Never add network calls to runtime code.
 - Logs contain only derived info (labels, counts, scores, latencies) unless the config
   setting `privacy.debug_show_text` is `true`.
+- The same rule applies to everything printed (CLI self-tests, dashboard, overlays): window titles,
+  OCR text, transcripts and command lines go through `kavach_privacy` (`redact_title`,
+  `redact_text`, `redact_cmdline`). By default show the process name + `<title hidden>`, and
+  cmdlines as exe + flag names only.
 - `privacy.write_raw_to_disk` must stay `false`; the config loader refuses to start if it is `true`.
 
 ## ONNX Runtime

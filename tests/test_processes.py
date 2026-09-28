@@ -259,7 +259,10 @@ def test_live_events_follow_is_remote_access_live(world_monitor):
 def test_cmdline_shown_in_output():
     state = P.RemoteToolState("AnyDesk", [11, 12], {11: "tray", 12: "user"}, True, None, 0.0, 0.0,
                               cmdlines={11: [AD_EXE, "--control"], 12: None})
-    out = P._fmt_state(state)
+    out = P._fmt_state(state, show_text=True)
     assert r'"C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --control' in out
     assert "<cmdline unreadable>" in out
     assert "live=True" in out
+
+    hidden = P._fmt_state(state, show_text=False)
+    assert "AnyDesk.exe --control" in hidden and "Program Files" not in hidden

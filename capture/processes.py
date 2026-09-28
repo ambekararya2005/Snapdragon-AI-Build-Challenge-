@@ -6,7 +6,8 @@ config `idle_args`, e.g. AnyDesk --tray / --control), "user" (current user, no i
 (another user). Installed AnyDesk/TeamViewer keep service and tray processes running all day, so only
 a user-role process counts as remote access being live. An ESTABLISHED non-loopback TCP connection on
 a user-role process marks an active session (extra evidence). Only local socket state is read;
-nothing is sent. Cmdlines are read for matched tool processes only and are never logged.
+nothing is sent. Cmdlines are read for matched tool processes only and are never logged; CLI output
+shows only the exe name and flag names unless privacy.debug_show_text is true (see kavach_privacy).
 
 Events: tool_started / tool_stopped (per tool), session_active / session_ended (per tool),
 live_started / live_ended (when is_remote_access_live() flips; tool = the tool that caused it).
@@ -29,7 +30,6 @@ import ipaddress
 import logging
 import os
 import queue
-import subprocess
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -38,7 +38,9 @@ from typing import Any, Callable, Iterable, Mapping
 
 import psutil
 
-log = logging.getLogger("capture.processes")
+from kavach_privacy import redact_cmdline
+
+log =logging.getLogger("capture.processes")
 
 PROC_ATTRS = ["pid", "name", "exe", "create_time", "username", "cmdline"]
 SERVICE_ACCOUNTS = {"SYSTEM", "LOCAL SERVICE", "NETWORK SERVICE", "LOCALSERVICE", "NETWORKSERVICE"}
@@ -350,16 +352,11 @@ class ProcessMonitor:
             self._thread = None
 
 
-def _fmt_cmdline(cmdline: list[str] | None) -> str:
-    if cmdline is None:
-        return "<cmdline unreadable>"
-    return subprocess.list2cmdline(cmdline)
-
-
-def _fmt_state(s: RemoteToolState, indent: str = "    ") -> str:
+def _fmt_state(s: RemoteToolState, indent: str = "    ", show_text: bool | None = None) -> str:
+    """Cmdlines are redacted to exe + flag names unless privacy.debug_show_text (or show_text=True)."""
     lines = [f"{s.tool}: live={s.has_user_process} active_session={s.active_session}"]
     for pid, role in s.roles.items():
-        lines.append(f"{indent}{pid:>6} {role:<7} {_fmt_cmdline(s.cmdlines.get(pid))}")
+        lines.append(f"{indent}{pid:>6} {role:<7} {redact_cmdline(s.cmdlines.get(pid), show_text)}")
     return "\n".join(lines)
 
 
