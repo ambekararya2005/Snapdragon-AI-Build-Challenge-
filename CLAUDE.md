@@ -12,6 +12,14 @@ and fuses these signals into a risk score that triggers a full-screen warning.
 - Dev setup: `powershell -ExecutionPolicy Bypass -File scripts\setup_dev.ps1`, then `.\.venv\Scripts\Activate.ps1`.
 - Tests: `python -m pytest -q`.
 
+## Windows environment
+- Smart App Control is on and blocks some unsigned native Python extensions
+  ("An Application Control policy has blocked this file").
+- When a package is blocked: try older versions or a pure-Python alternative, pin what works in
+  `requirements.txt` with a comment, and tell the user.
+- Never disable security settings (Smart App Control, Defender, WDAC, etc.) yourself.
+- Known: `onnx` is pinned to 1.18.0 for this reason (1.20.1 and 1.23.0 are blocked).
+
 ## Privacy is the product
 - Never write screenshots, OCR text, transcripts or audio to disk.
 - Never add network calls to runtime code.
