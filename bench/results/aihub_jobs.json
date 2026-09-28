@@ -1,0 +1,94 @@
+[
+  {
+    "ts": "2026-09-28T22:12:41+0530",
+    "kind": "compile",
+    "job_id": "j5m019r9g",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/j5m019r9g/",
+    "model": "det_static",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "model_file": "weights\\ocr\\det_static.onnx",
+    "model_sha256": "ee762ca0e2ea5933cc923bdb54a00a54bcae9c77d80c778394f0a510592524c8",
+    "input_specs": {
+      "x": [
+        1,
+        3,
+        736,
+        1280
+      ]
+    },
+    "wants": [
+      "profile",
+      "inference"
+    ]
+  },
+  {
+    "ts": "2026-09-28T22:12:49+0530",
+    "kind": "compile",
+    "job_id": "jgnzd12qg",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jgnzd12qg/",
+    "model": "rec_static_320",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "model_file": "weights\\ocr\\rec_static_320.onnx",
+    "model_sha256": "4891f439c4880200f413a7562c8b242ecb7eff3b7fd04733d21a07f9aad64cb7",
+    "input_specs": {
+      "x": [
+        8,
+        3,
+        48,
+        320
+      ]
+    },
+    "wants": [
+      "profile",
+      "inference"
+    ]
+  },
+  {
+    "ts": "2026-09-28T22:12:56+0530",
+    "kind": "compile",
+    "job_id": "jp2rqo8qg",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jp2rqo8qg/",
+    "model": "rec_static_640",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "model_file": "weights\\ocr\\rec_static_640.onnx",
+    "model_sha256": "d56185b74c8aaa1c429af5e54478969950c5938efe6ba9c822a77a7f4260ac98",
+    "input_specs": {
+      "x": [
+        8,
+        3,
+        48,
+        640
+      ]
+    },
+    "wants": [
+      "profile",
+      "inference"
+    ]
+  },
+  {
+    "ts": "2026-09-28T22:13:03+0530",
+    "kind": "compile",
+    "job_id": "jpyok8el5",
+    "url": "https://workbench.aihub.qualcomm.com/jobs/jpyok8el5/",
+    "model": "rec_static_1280",
+    "device": "Snapdragon X Elite CRD",
+    "target_runtime": "precompiled_qnn_onnx",
+    "model_file": "weights\\ocr\\rec_static_1280.onnx",
+    "model_sha256": "76720a92392aa9f7ae8f29f6b4f18170d97061a895dc3092b866a61d2e44c9a7",
+    "input_specs": {
+      "x": [
+        4,
+        3,
+        48,
+        1280
+      ]
+    },
+    "wants": [
+      "profile",
+      "inference"
+    ]
+  }
+]

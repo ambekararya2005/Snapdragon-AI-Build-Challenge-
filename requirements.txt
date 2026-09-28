@@ -21,3 +21,8 @@ shapely==2.1.2
 onnx==1.18.0              # newer onnx wheels are blocked by Windows Smart App Control on the dev PC
 pytest==9.1.1
 rapidocr_onnxruntime==1.4.4
+
+# Dev-time only: Qualcomm AI Hub client for bench/aihub_profile.py (never imported at runtime).
+# It pins protobuf<7 (installs protobuf 6.31.1); onnx 1.18.0 works with that.
+# qai-hub-models is deliberately NOT here: it pulls in torch and may upgrade onnx/numpy.
+qai-hub==0.55.0

@@ -101,3 +101,10 @@ fusion:
 logging:
   level: INFO
   dir: logs/
+
+bench:                     # dev-time only (bench/aihub_profile.py); never used by the runtime pipeline
+  # Qualcomm AI Hub device names: python -m bench.aihub_profile --list-devices
+  aihub_device: "Snapdragon X Elite CRD"
+  aihub_devices_extra: []  # optional extra devices, e.g. ["Snapdragon X Plus 8-Core CRD"]
+  aihub_target_runtime: precompiled_qnn_onnx   # ONNX Runtime + QNN EP (QNN context binary in ONNX)
+  aihub_fallback_runtime: onnx                 # used only if the server rejects the preferred runtime
