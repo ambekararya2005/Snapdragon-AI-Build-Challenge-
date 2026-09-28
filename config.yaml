@@ -73,10 +73,13 @@ ocr:
   keys: weights/ocr/keys.txt
   use_cls: false           # 0/180 deg text classifier; screen text is upright, so skip it (saves latency)
   det_input_hw: [736, 1280]
-  # rec width = p95 of line widths at h=48 on the mock bank page in Chrome @125%, rounded up to 32
-  # (scripts\measure_rec_widths.py: p50 211, p95 1144, max 1913). Wider lines need splitting.
-  rec_input_hw: [48, 1152]
-  rec_batch: 8
+  # Native backend rec: one static model per width bucket. Each line goes to the smallest bucket
+  # that fits its width at rec_height; wider than the last bucket -> squashed to it.
+  # Line widths on the mock bank page (Chrome @125%, scripts\measure_rec_widths.py):
+  # p50 211, p75 322, p95 1144, max 1913 -> 320 covers ~72%, 640 ~86%, 1280 ~98% of lines.
+  rec_height: 48
+  rec_buckets: [320, 640, 1280]
+  rec_batch: {320: 8, 640: 8, 1280: 4}   # per-bucket static batch size (an int applies to all buckets)
 
 audio:                     # placeholders for later
   chunk_s: 5

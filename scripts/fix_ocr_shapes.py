@@ -1,7 +1,10 @@
 """Write static-shape copies of the OCR models for Qualcomm AI Hub / the native backend.
 
-    weights/ocr/det_static.onnx   input x: [1, 3, H, W]            from ocr.det_input_hw
-    weights/ocr/rec_static.onnx   input x: [rec_batch, 3, 48, W]   from ocr.rec_input_hw, ocr.rec_batch
+    weights/ocr/det_static.onnx        input x: [1, 3, H, W]                 from ocr.det_input_hw
+    weights/ocr/rec_static_<W>.onnx    input x: [B, 3, rec_height, W]  one per ocr.rec_buckets width,
+                                        B = ocr.rec_batch[W] (or ocr.rec_batch if it is an int)
+
+Stale rec_static*.onnx files (old single-width model, buckets no longer configured) are deleted.
 
 Uses onnxruntime.tools.onnx_model_utils (make_input_shape_fixed + fix_output_shapes) and the onnx
 API. onnx is pinned to 1.18.0 because newer wheels are blocked by Smart App Control; don't upgrade.
@@ -73,19 +76,35 @@ def cpu_run(path: Path, name: str) -> tuple[list, float]:
     return [o.shape for o in outs], (time.perf_counter() - t0) * 1000
 
 
+def bucket_batches(buckets: list[int], rec_batch) -> dict[int, int]:
+    """Per-bucket batch size from ocr.rec_batch: an int (all buckets) or a {width: batch} mapping."""
+    if isinstance(rec_batch, int):
+        return {w: rec_batch for w in buckets}
+    table = {int(k): int(v) for k, v in dict(rec_batch).items()}
+    missing = [w for w in buckets if w not in table]
+    if missing:
+        raise SystemExit(f"ocr.rec_batch has no batch size for bucket(s) {missing}")
+    return {w: table[w] for w in buckets}
+
+
 def main() -> int:
     cfg = get_config().ocr
     det_h, det_w = cfg.det_input_hw
-    rec_h, rec_w = cfg.rec_input_hw
-    batch = int(cfg.get("rec_batch", 8))
-    for n, v in (("det H", det_h), ("det W", det_w), ("rec W", rec_w)):
+    rec_h = int(cfg.get("rec_height", 48))
+    buckets = sorted(int(w) for w in cfg.rec_buckets)
+    batches = bucket_batches(buckets, cfg.get("rec_batch", 8))
+    for n, v in [("det H", det_h), ("det W", det_w)] + [(f"rec bucket {w}", w) for w in buckets]:
         if v % 32:
             print(f"warning: {n}={v} is not a multiple of 32")
 
-    jobs = [
-        ("det", OCR_DIR / "det.onnx", OCR_DIR / "det_static.onnx", [1, 3, det_h, det_w]),
-        ("rec", OCR_DIR / "rec.onnx", OCR_DIR / "rec_static.onnx", [batch, 3, rec_h, rec_w]),
-    ]
+    jobs = [("det", OCR_DIR / "det.onnx", OCR_DIR / "det_static.onnx", [1, 3, det_h, det_w])]
+    jobs += [(f"rec_{w}", OCR_DIR / "rec.onnx", OCR_DIR / f"rec_static_{w}.onnx", [batches[w], 3, rec_h, w])
+             for w in buckets]
+    wanted = {dst.name for *_, dst, _ in jobs}
+    for stale in sorted(OCR_DIR.glob("rec_static*.onnx")):
+        if stale.name not in wanted:
+            stale.unlink()
+            print(f"deleted stale {stale.relative_to(ROOT)}")
     print(f"onnx {onnx.__version__}")
     for tag, src, dst, shape in jobs:
         if not src.is_file():

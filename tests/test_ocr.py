@@ -39,11 +39,9 @@ def test_fold_confusables():
     assert O.fold_confusables("Pay 5000 now") == "PAY 5000 NOW"      # numbers untouched
 
 
-def test_unknown_backend_and_native_not_ready():
+def test_unknown_backend():
     with pytest.raises(ValueError):
         O.create_backend({"ocr": {"backend": "tesseract"}, "runtime": {"provider": "cpu"}})
-    with pytest.raises(NotImplementedError):
-        O.create_backend({"ocr": {"backend": "native"}, "runtime": {"provider": "cpu"}})
 
 
 # ---------------------------------------------------------------- real OCR (rapidocr, CPU)
@@ -124,3 +122,11 @@ def test_fix_ocr_shapes_static(tmp_path):
     reloaded = onnx.load(str(rec_path))
     assert fix._dims(reloaded.graph.output[0]) == [2, 40, 6625]
     runtime.clear_registry()
+
+
+def test_bucket_batches():
+    fix = pytest.importorskip("scripts.fix_ocr_shapes")
+    assert fix.bucket_batches([320, 640], 8) == {320: 8, 640: 8}
+    assert fix.bucket_batches([320, 640, 1280], {320: 8, 640: 8, 1280: 4}) == {320: 8, 640: 8, 1280: 4}
+    with pytest.raises(SystemExit):
+        fix.bucket_batches([320, 960], {320: 8})

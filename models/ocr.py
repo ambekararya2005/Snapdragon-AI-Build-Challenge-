@@ -1,4 +1,4 @@
-"""OCR wrapper. Backend 'rapidocr' (third-party, creates its own onnxruntime sessions — the one allowed exception) or 'native' (det/rec ONNX models via models.runtime).
+"""OCR wrapper. Backend 'rapidocr' (third-party, creates its own onnxruntime sessions — the one allowed exception) or 'native' (static det/rec ONNX models via models.runtime; see models/ocr_native.py).
 
     ocr = create_backend()                 # config ocr.backend
     result = ocr(bgr_image)                # OcrResult; text stays in memory
@@ -253,7 +253,9 @@ def create_backend(config: Mapping[str, Any] | None = None) -> OcrBackend:
     if backend == "rapidocr":
         return RapidOcrBackend(config)
     if backend == "native":
-        raise NotImplementedError("ocr.backend 'native' (det/rec via models.runtime) is not implemented yet")
+        from models.ocr_native import NativeOcrBackend  # static det/rec via models.runtime
+
+        return NativeOcrBackend(config)
     raise ValueError(f"unknown ocr.backend {backend!r}")
 
 

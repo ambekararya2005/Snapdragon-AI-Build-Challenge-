@@ -1,4 +1,4 @@
-"""Measure OCR text-line widths to choose a static rec input width (ocr.rec_input_hw).
+"""Measure OCR text-line widths to choose static rec widths (ocr.rec_buckets).
 
 Captures the active window (browser tab strip cropped like ScreenSampler does), runs OCR, and
 prints the distribution of line-crop widths after resizing to height 48 (what the rec model sees).
@@ -119,7 +119,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {label:>9}: {n:3d} {'#' * int(n)}")
     for w in (320, 480, 640, 960):
         print(f"  lines wider than {w}: {int((widths > w).sum())}/{widths.size} ({(widths > w).mean():.0%})")
-    print(f"suggested ocr.rec_input_hw: [{REC_H}, {pick_width(widths)}]  (p95 rounded up to a multiple of 32)")
+    print(f"p95 width rounded up to a multiple of 32: {pick_width(widths)}")
+    buckets = [int(w) for w in cfg.ocr.get("rec_buckets", [])]
+    if buckets:
+        left = np.ones(widths.size, dtype=bool)
+        for b in buckets:
+            fits = left & (widths <= b)
+            print(f"  bucket {b}: {int(fits.sum())} lines")
+            left &= ~fits
+        print(f"  squashed to {buckets[-1]}: {int(left.sum())} lines")
     return 0
 
 
