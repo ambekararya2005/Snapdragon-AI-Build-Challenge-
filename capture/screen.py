@@ -5,6 +5,9 @@
     sampler.stats()                                             # frames, skipped, skip_rate, last_capture_ms
 
 Screenshots are never written to disk; ScreenSampler drops its image reference after the callback.
+Kavach's own windows (dashboard, caution toast) can sit on top of the watched window; every grab is
+masked right after capture: the parts covered by visible top-level windows of this process are
+filled with white, so OCR and change detection never see Kavach's own UI (ScreenFrame.masked_px).
 Window titles are screen text: logs never contain them, and CLI output shows "<title hidden>"
 unless privacy.debug_show_text is true (see kavach_privacy).
 
@@ -86,6 +89,7 @@ class ScreenFrame:
     capture_ms: float
     diff: float = 0.0                  # mean abs diff of the 64x36 thumbnail vs the last sent frame
     crop_top: int = 0                  # physical px removed from the top (browser tab strip)
+    masked_px: int = 0                 # image px painted white because a Kavach window covered them
 
 
 # ---------------------------------------------------------------- pure helpers (unit-tested)
@@ -117,6 +121,69 @@ def clamp_rect(rect: Rect, bounds: Mapping[str, int]) -> Rect | None:
     if r <= l or b <= t:
         return None
     return l, t, r, b
+
+
+def mask_regions(image: np.ndarray, grab_rect: Rect, rects: Iterable[Rect], fill: int = 255) -> int:
+    """Paint the parts of `image` covered by `rects` (screen coords) with `fill`, in place.
+
+    image shows grab_rect (physical px), possibly downscaled; covered regions are scaled the same way
+    and rounded outwards so no Kavach pixel survives. Returns the number of image pixels painted
+    (overlapping rects counted once)."""
+    l, t, r, b = grab_rect
+    h, w = image.shape[:2]
+    if r <= l or b <= t or not h or not w:
+        return 0
+    sx, sy = w / (r - l), h / (b - t)
+    covered: np.ndarray | None = None
+    for rl, rt, rr, rb in rects:
+        il, it, ir, ib = max(l, rl), max(t, rt), min(r, rr), min(b, rb)
+        if ir <= il or ib <= it:
+            continue
+        x0, x1 = max(0, int(np.floor((il - l) * sx))), min(w, int(np.ceil((ir - l) * sx)))
+        y0, y1 = max(0, int(np.floor((it - t) * sy))), min(h, int(np.ceil((ib - t) * sy)))
+        if x1 <= x0 or y1 <= y0:
+            continue
+        image[y0:y1, x0:x1] = fill
+        if covered is None:
+            covered = np.zeros((h, w), dtype=bool)
+        covered[y0:y1, x0:x1] = True
+    return int(covered.sum()) if covered is not None else 0
+
+
+def kavach_window_rects(pid: int | None = None) -> list[Rect]:
+    """Visible, non-minimized top-level windows owned by this process (dashboard, toast, overlay),
+    as extended-frame rects in physical px."""
+    if not IS_WINDOWS:
+        return []
+    pid = os.getpid() if pid is None else pid
+    found: list[Rect] = []
+
+    def visit(hwnd: int, _: Any) -> bool:
+        try:
+            if not win32gui.IsWindowVisible(hwnd) or win32gui.IsIconic(hwnd):
+                return True
+            if win32process.GetWindowThreadProcessId(hwnd)[1] != pid:
+                return True
+            rect = _dwm_frame_rect(hwnd) or tuple(win32gui.GetWindowRect(hwnd))
+            if rect[2] > rect[0] and rect[3] > rect[1]:
+                found.append(tuple(int(v) for v in rect))
+        except Exception:  # noqa: BLE001 - window vanished mid-enumeration
+            pass
+        return True
+
+    try:
+        win32gui.EnumWindows(visit, None)
+    except Exception as e:  # noqa: BLE001
+        log.debug("EnumWindows failed: %s", type(e).__name__)
+    return found
+
+
+def virtual_screen() -> dict[str, int] | None:
+    """{left, top, width, height} of the virtual screen (all monitors), like mss.monitors[0]."""
+    if not IS_WINDOWS:
+        return None
+    m = ctypes.windll.user32.GetSystemMetrics
+    return {"left": m(76), "top": m(77), "width": m(78), "height": m(79)}
 
 
 def downscale(image: np.ndarray, max_side: int) -> np.ndarray:
@@ -294,6 +361,8 @@ class ScreenSampler:
         on_sample: Callable[[ScreenFrame], None] | None = None,
         window_fn: Callable[[], WindowInfo | None] | None = None,
         grab_fn: Callable[[WindowInfo, int], np.ndarray | None] = grab,
+        mask_rects_fn: Callable[[], Iterable[Rect]] | None = kavach_window_rects,
+        screen_bounds_fn: Callable[[], Mapping[str, int] | None] = virtual_screen,
     ):
         """on_frame gets changed frames with the image; on_sample gets every sample as metadata (image=None)."""
         if config is None:
@@ -310,6 +379,10 @@ class ScreenSampler:
         self.on_sample = on_sample
         self._window_fn = window_fn or (lambda: get_active_window(prefixes, classes))
         self._grab_fn = grab_fn
+        self._mask_rects_fn = mask_rects_fn
+        self._screen_bounds_fn = screen_bounds_fn
+        self.last_masked_px = 0
+        self.masked_frames = 0
         self.no_window = 0
         self.last_capture_ms: float | None = None
         self._stop = threading.Event()
@@ -330,10 +403,11 @@ class ScreenSampler:
             self.no_window += 1
             return None
         self.last_capture_ms = capture_ms
+        masked = self._mask_kavach(image, target.rect)        # before change detection and OCR
         changed, diff = self.detector.update(image, window.title, window.hwnd)
         ts = time.time()
         if changed and self.on_frame:
-            frame = ScreenFrame(ts, window, image, True, capture_ms, diff, crop)
+            frame = ScreenFrame(ts, window, image, True, capture_ms, diff, crop, masked)
             try:
                 self.on_frame(frame)
             except Exception:
@@ -342,13 +416,32 @@ class ScreenSampler:
                 frame.image = None
                 del frame
         del image
-        meta = ScreenFrame(ts, window, None, changed, capture_ms, diff, crop)
+        meta = ScreenFrame(ts, window, None, changed, capture_ms, diff, crop, masked)
         if self.on_sample:
             try:
                 self.on_sample(meta)
             except Exception:
                 log.exception("on_sample callback failed")
         return meta
+
+    def _mask_kavach(self, image: np.ndarray, target_rect: Rect) -> int:
+        """White out Kavach's own windows inside the grabbed rect (grab() clamps to the virtual screen)."""
+        if self._mask_rects_fn is None:
+            return 0
+        try:
+            rects = list(self._mask_rects_fn())
+            if not rects:
+                self.last_masked_px = 0
+                return 0
+            bounds = self._screen_bounds_fn() if self._screen_bounds_fn else None
+            grabbed = (clamp_rect(target_rect, bounds) if bounds else target_rect) or target_rect
+            n = mask_regions(image, grabbed, rects)
+        except Exception as e:  # noqa: BLE001 - never lose the frame over masking
+            log.warning("masking Kavach windows failed: %s", type(e).__name__)
+            return 0
+        self.last_masked_px = n
+        self.masked_frames += bool(n)
+        return n
 
     def stats(self) -> dict[str, Any]:
         d = self.detector
@@ -357,6 +450,8 @@ class ScreenSampler:
             "skipped": d.skipped,
             "skip_rate": round(d.skip_rate, 3),
             "no_window": self.no_window,
+            "masked_px": self.last_masked_px,
+            "masked_frames": self.masked_frames,
             "last_capture_ms": round(self.last_capture_ms, 1) if self.last_capture_ms is not None else None,
         }
 

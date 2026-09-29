@@ -53,6 +53,10 @@ screen:
   change_threshold: 4.0    # mean abs pixel diff needed to re-run OCR
   force_on_title_change: true
   exclude_title_prefixes: ["Kavach"]
+  # Kavach's own windows (dashboard, toast) are always masked white in grabbed frames before OCR.
+  # hide_kavach_from_capture additionally sets WDA_EXCLUDEFROMCAPTURE on them - that also hides them
+  # from OBS / Xbox Game Bar recordings, so it stays off (e.g. for demo videos).
+  hide_kavach_from_capture: false
   exclude_window_classes: [Shell_TrayWnd, Shell_SecondaryTrayWnd, Progman, WorkerW]  # taskbars, desktop
   # Browser tab strip cropped off the top before OCR (address bar kept; the active tab's title
   # still comes from the window title). Values in px at 100% scaling (96 DPI), scaled by the

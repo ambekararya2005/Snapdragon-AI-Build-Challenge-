@@ -79,13 +79,9 @@ class FakePipeline:
 
 
 @pytest.fixture
-def ov():
-    tk = pytest.importorskip("tkinter")
-    try:
-        o = Overlay(CFG, remote=FakeRemote(), pipeline=FakePipeline(), speak=False, fullscreen=False, input_guard=False)
-        o.make_root()
-    except tk.TclError as e:
-        pytest.skip(f"no display: {e}")
+def ov(tk_root):
+    o = Overlay(CFG, remote=FakeRemote(), pipeline=FakePipeline(), speak=False, fullscreen=False, input_guard=False)
+    o.root = tk_root
     closed = []
     o.on_closed = closed.append
     o.closed = closed
@@ -93,7 +89,7 @@ def ov():
     o.close_toast()
     if o.alert_win is not None:
         o.alert_win.destroy()
-    o.root.destroy()
+    tk_root.update()
 
 
 def click(widget):
@@ -273,3 +269,41 @@ def test_mouse_guard_start_stop_real_hook():
     finally:
         g.stop()
     assert not g.available and g._thread is None
+
+
+# ---------------------------------------------------------------- demo screenshots never include other windows
+
+def test_colour_fraction():
+    from act.overlay import colour_fraction
+
+    rgb = bytes([0, 255, 0] * 75 + [255, 0, 255] * 25)
+    assert colour_fraction(rgb, ["#00FF00"]) == pytest.approx(0.75)
+    assert colour_fraction(rgb, ["#00FF00", "#FF00FF"]) == pytest.approx(1.0)
+    assert colour_fraction(b"", ["#000000"]) == 0.0
+
+
+def test_render_window_ignores_windows_on_top(tk_root):
+    """Regression: a screen-grab screenshot once captured the Alt+Tab switcher over the dashboard.
+    render_window_rgb renders the window itself, so a window covering it contributes nothing."""
+    import sys
+    import tkinter as tk
+
+    from act.overlay import colour_fraction, render_window_rgb
+
+    if sys.platform != "win32":
+        pytest.skip("Windows only")
+    a = tk.Toplevel(tk_root, bg="#00FF00")
+    b = tk.Toplevel(tk_root, bg="#FF00FF")
+    try:
+        a.geometry("300x200+200+200")
+        b.geometry("300x200+250+250")
+        b.attributes("-topmost", True)
+        tk_root.update()
+        tk_root.after(300)
+        tk_root.update()
+        rgb, size = render_window_rgb(a)
+        assert colour_fraction(rgb, ["#00FF00"]) > 0.6
+        assert colour_fraction(rgb, ["#FF00FF"]) == 0.0
+    finally:
+        a.destroy()
+        b.destroy()

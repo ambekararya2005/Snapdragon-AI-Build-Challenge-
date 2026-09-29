@@ -265,3 +265,82 @@ def test_grab_real_screen():
     assert img is not None and img.dtype == np.uint8 and img.ndim == 3 and img.shape[2] == 3
     assert max(img.shape[:2]) <= 200
     S.close_thread_mss()
+
+
+# ---------------------------------------------------------------- masking Kavach's own windows
+
+def _noise(h, w, seed=0):
+    return np.random.default_rng(seed).integers(0, 200, (h, w, 3), dtype=np.uint8)   # never pure white
+
+
+def test_mask_regions_whites_only_the_overlap():
+    img = _noise(100, 200)
+    orig = img.copy()
+    # grabbed rect is screen (1000, 500)-(1200, 600); a Kavach window covers (1150, 450)-(1300, 540)
+    n = S.mask_regions(img, (1000, 500, 1200, 600), [(1150, 450, 1300, 540)])
+    assert n == 50 * 40
+    assert (img[0:40, 150:200] == 255).all()                       # overlap -> white
+    untouched = np.ones((100, 200), bool)
+    untouched[0:40, 150:200] = False
+    assert (img[untouched] == orig[untouched]).all()               # everything else unchanged
+
+
+def test_mask_regions_scales_with_downscaled_frame_and_counts_overlaps_once():
+    img = _noise(540, 960)                                         # 1920x1080 grab downscaled by 0.5
+    n = S.mask_regions(img, (0, 0, 1920, 1080), [(0, 0, 1280, 720), (1000, 600, 1400, 800)])
+    assert (img[0:360, 0:640] == 255).all() and (img[300:400, 500:700] == 255).all()
+    assert n == 640 * 360 + 200 * 100 - 140 * 60                   # union, not sum
+    assert not (img[400:, 700:] == 255).all(axis=-1).any()
+
+
+def test_mask_regions_no_overlap_or_empty():
+    img = _noise(50, 50)
+    orig = img.copy()
+    assert S.mask_regions(img, (0, 0, 50, 50), [(60, 60, 90, 90), (0, 0, 0, 10)]) == 0
+    assert S.mask_regions(img, (0, 0, 50, 50), []) == 0
+    assert (img == orig).all()
+
+
+def test_sampler_masks_kavach_window_before_ocr_and_reports():
+    window = S.WindowInfo(1, "Bank", 10, "app.exe", (100, 100, 500, 400))
+    cfg = {"screen": {"interval_s": 1, "change_threshold": 4.0, "max_side": 1920, "exclude_window_classes": []}}
+    frames = []
+    sampler = S.ScreenSampler(cfg, on_frame=lambda f: frames.append((f.image.copy(), f.masked_px)),
+                              window_fn=lambda: window, grab_fn=lambda w, m: _noise(300, 400),
+                              mask_rects_fn=lambda: [(0, 0, 300, 250)],            # dashboard at top-left
+                              screen_bounds_fn=lambda: {"left": 0, "top": 0, "width": 1920, "height": 1080})
+    meta = sampler.sample_once()
+    img, masked = frames[0]
+    assert masked == meta.masked_px == 200 * 150
+    assert (img[0:150, 0:200] == 255).all() and not (img[150:, 200:] == 255).all(axis=-1).any()
+    assert sampler.stats()["masked_px"] == 30000 and sampler.stats()["masked_frames"] == 1
+
+
+def test_sampler_keeps_frame_when_masking_fails():
+    def boom():
+        raise OSError("EnumWindows")
+
+    window = S.WindowInfo(1, "A", 10, "app.exe", (0, 0, 100, 100))
+    frames = []
+    sampler = S.ScreenSampler({"screen": {"interval_s": 1}}, on_frame=lambda f: frames.append(f.masked_px),
+                              window_fn=lambda: window, grab_fn=lambda w, m: _noise(100, 100), mask_rects_fn=boom)
+    sampler.sample_once()
+    assert frames == [0]
+
+
+@windows_only
+def test_kavach_window_rects_finds_own_visible_tk_window(tk_root):
+    import tkinter as tk
+
+    root = tk.Toplevel(tk_root)
+    try:
+        root.geometry("220x140+300+200")
+        root.update()
+        rects = S.kavach_window_rects()
+        assert any(r[2] - r[0] >= 200 and r[3] - r[1] >= 120 for r in rects), rects
+        root.withdraw()
+        root.update()
+        assert not any(r[2] - r[0] >= 200 and r[3] - r[1] >= 120 for r in S.kavach_window_rects())
+        assert S.kavach_window_rects(pid=1) == []                                  # other process: none
+    finally:
+        root.destroy()

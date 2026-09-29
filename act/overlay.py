@@ -44,7 +44,7 @@ import threading
 import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import yaml
 
@@ -203,6 +203,32 @@ def set_dpi_awareness() -> None:
             pass
 
 
+WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0x00, 0x11
+
+
+def hide_from_capture_enabled(config: Mapping[str, Any] | None) -> bool:
+    """config screen.hide_kavach_from_capture (default false: the sampler masks Kavach windows instead,
+    and screen recorders like OBS / Game Bar still show them)."""
+    return bool(((config or {}).get("screen", {}) or {}).get("hide_kavach_from_capture", False))
+
+
+def set_capture_excluded(win: Any, excluded: bool = True) -> bool:
+    """Hide a Kavach window from ALL screen capture (SetWindowDisplayAffinity, Windows 10 2004+),
+    including OBS / Game Bar. Only used when screen.hide_kavach_from_capture is true; normally the
+    screen sampler masks Kavach's windows itself (capture.screen.mask_regions).
+    Returns False if unsupported."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+
+    try:
+        win.update_idletasks()
+        hwnd = int(win.wm_frame(), 16)
+        return bool(ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE if excluded else WDA_NONE))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def work_area() -> tuple[int, int, int, int] | None:
     """Primary monitor work area (excludes the taskbar), physical px."""
     if sys.platform != "win32":
@@ -256,9 +282,9 @@ BUTTON_DOWN_MSGS = frozenset({0x0201, 0x0204, 0x0207, 0x020B})     # L / R / M /
 LLMHF_INJECTED, LLMHF_LOWER_IL_INJECTED = 0x01, 0x02
 
 
-def click_decision(button: str, injected: bool | None) -> bool:
+def click_decision(button: str, injected: bool | None, guarded: frozenset[str] = GUARDED_BUTTONS) -> bool:
     """True = run the button's action. injected None = unknown (hook unavailable) -> allow."""
-    return not (injected and button in GUARDED_BUTTONS)
+    return not (injected and button in guarded)
 
 
 def is_injected(flags: int) -> bool:
@@ -681,6 +707,8 @@ class Overlay:
         w.after(int(seconds * 1000), self.close_toast)
         self.toast_win = w
         w.update()
+        if hide_from_capture_enabled(self.cfg):              # off by default: the sampler masks it
+            set_capture_excluded(w)
         return w
 
     def close_toast(self) -> None:
@@ -694,27 +722,90 @@ class Overlay:
 
 # ---------------------------------------------------------------- demo screenshot (demo strings only)
 
-def save_window_png(win: Any, path: Path, bg: str, min_bg_fraction: float = 0.4) -> bool:
-    """Grab exactly the window's rectangle and save it - only if it really shows our window (enough
-    pixels in its background colour), so no real screen content can end up on disk."""
-    import mss
-    import mss.tools
+def render_window_rgb(win: Any) -> tuple[bytes, tuple[int, int]] | None:
+    """Render ONLY this Tk window's own pixels (PrintWindow + PW_RENDERFULLCONTENT) - never a screen
+    grab, so other windows on top (Alt+Tab switcher, notifications, chat apps) cannot end up in it.
+    Returns (RGB bytes, (width, height)) or None if rendering failed."""
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
 
     win.update()
-    x, y, w, h = win.winfo_rootx(), win.winfo_rooty(), win.winfo_width(), win.winfo_height()
-    with (mss.MSS() if hasattr(mss, "MSS") else mss.mss()) as sct:
-        shot = sct.grab({"left": x, "top": y, "width": w, "height": h})
-    want = tuple(int(bg[i:i + 2], 16) for i in (1, 3, 5))
-    px = shot.rgb
-    n = len(px) // 3
-    step = max(1, n // 20000)
-    hits = sum(1 for i in range(0, n, step) if all(abs(px[3 * i + c] - want[c]) <= 6 for c in range(3)))
-    frac = hits / len(range(0, n, step))
+    hwnd = int(win.wm_frame(), 16)
+
+    class BITMAPINFOHEADER(ctypes.Structure):
+        _fields_ = [("biSize", wintypes.DWORD), ("biWidth", wintypes.LONG), ("biHeight", wintypes.LONG),
+                    ("biPlanes", wintypes.WORD), ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
+                    ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", wintypes.LONG),
+                    ("biYPelsPerMeter", wintypes.LONG), ("biClrUsed", wintypes.DWORD), ("biClrImportant", wintypes.DWORD)]
+
+    user32, gdi32 = ctypes.WinDLL("user32"), ctypes.WinDLL("gdi32")    # private: argtypes don't leak
+    HDC, HBM, HWND = wintypes.HDC, wintypes.HBITMAP, wintypes.HWND
+    user32.GetWindowRect.argtypes = [HWND, ctypes.POINTER(wintypes.RECT)]
+    user32.GetWindowDC.argtypes, user32.GetWindowDC.restype = [HWND], HDC
+    user32.ReleaseDC.argtypes = [HWND, HDC]
+    user32.PrintWindow.argtypes = [HWND, HDC, wintypes.UINT]
+    gdi32.CreateCompatibleDC.argtypes, gdi32.CreateCompatibleDC.restype = [HDC], HDC
+    gdi32.CreateCompatibleBitmap.argtypes, gdi32.CreateCompatibleBitmap.restype = [HDC, ctypes.c_int, ctypes.c_int], HBM
+    gdi32.SelectObject.argtypes, gdi32.SelectObject.restype = [HDC, wintypes.HGDIOBJ], wintypes.HGDIOBJ
+    gdi32.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+    gdi32.DeleteDC.argtypes = [HDC]
+    gdi32.GetDIBits.argtypes = [HDC, HBM, wintypes.UINT, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT]
+    r = wintypes.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(r))
+    w, h = r.right - r.left, r.bottom - r.top
+    if w <= 0 or h <= 0:
+        return None
+    wdc = user32.GetWindowDC(hwnd)
+    mdc = gdi32.CreateCompatibleDC(wdc)
+    bmp = gdi32.CreateCompatibleBitmap(wdc, w, h)
+    old = gdi32.SelectObject(mdc, bmp)
+    try:
+        if not user32.PrintWindow(hwnd, mdc, 2):                        # PW_RENDERFULLCONTENT
+            return None
+        bih = BITMAPINFOHEADER(ctypes.sizeof(BITMAPINFOHEADER), w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+        buf = (ctypes.c_ubyte * (w * h * 4))()
+        if not gdi32.GetDIBits(mdc, bmp, 0, h, buf, ctypes.byref(bih), 0):
+            return None
+        bgra = bytes(buf)
+    finally:
+        gdi32.SelectObject(mdc, old)
+        gdi32.DeleteObject(bmp)
+        gdi32.DeleteDC(mdc)
+        user32.ReleaseDC(hwnd, wdc)
+    rgb = bytearray(w * h * 3)
+    rgb[0::3], rgb[1::3], rgb[2::3] = bgra[2::4], bgra[1::4], bgra[0::4]
+    return bytes(rgb), (w, h)
+
+
+def colour_fraction(rgb: bytes, colours: Sequence[str], tol: int = 6, samples: int = 20000) -> float:
+    """Share of sampled pixels within `tol` of any of the hex colours."""
+    wants = [tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in colours]
+    n = len(rgb) // 3
+    step = max(1, n // samples)
+    idx = range(0, n, step)
+    hits = sum(1 for i in idx if any(all(abs(rgb[3 * i + c] - want[c]) <= tol for c in range(3)) for want in wants))
+    return hits / len(idx) if len(idx) else 0.0
+
+
+def save_window_png(win: Any, path: Path, bg: str | Sequence[str], min_bg_fraction: float = 0.4) -> bool:
+    """Demo screenshot of one Kavach window: rendered from the window itself (render_window_rgb), not
+    grabbed from the screen, so nothing else on screen can be in it. Still refused unless enough pixels
+    are the window's own colours (sanity check)."""
+    import mss.tools
+
+    shot = render_window_rgb(win)
+    if shot is None:
+        log.error("screenshot refused: could not render the window itself")
+        return False
+    rgb, size = shot
+    frac = colour_fraction(rgb, [bg] if isinstance(bg, str) else list(bg))
     if frac < min_bg_fraction:
-        log.error("screenshot refused: only %.0f%% of pixels are the overlay background", frac * 100)
+        log.error("screenshot refused: only %.0f%% of pixels are the window's own colours", frac * 100)
         return False
     path.parent.mkdir(parents=True, exist_ok=True)
-    mss.tools.to_png(shot.rgb, shot.size, output=str(path))
+    mss.tools.to_png(rgb, size, output=str(path))
     return True
 
 

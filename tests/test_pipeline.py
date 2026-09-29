@@ -95,3 +95,35 @@ def test_report_event_reaches_incident_log(tmp_path):
         pipe.stop()
     rec = json.loads(log.path.read_text(encoding="utf-8").splitlines()[0])
     assert rec["kind"] == "overlay:injected_click_blocked" and rec["button"] == "safe" and rec["incident"] == 2
+
+
+def test_pause_drops_signals_and_resets_then_resume():
+    pipe = Pipeline(CFG, screen=False, audio=False, processes=False, incident_log=False)
+    pipe.start()
+    try:
+        pipe.post("processes", RemoteToolSignal("AnyDesk", True))
+        assert _wait(lambda: pipe.state is not None and pipe.state.score == 30)
+        pipe.pause(3600)
+        assert _wait(lambda: pipe.paused and pipe.state.score == 0)
+        assert pipe.snapshot()["paused_until"] is not None
+        pipe.post("processes", RemoteToolSignal("AnyDesk", True))
+        time.sleep(0.3)
+        assert pipe.state.score == 0, "signals are dropped while paused"
+        pipe.resume_monitoring()
+        assert _wait(lambda: not pipe.paused)
+        pipe.post("processes", RemoteToolSignal("AnyDesk", True))
+        assert _wait(lambda: pipe.state.score == 30)
+        assert pipe.snapshot()["paused_until"] is None
+    finally:
+        pipe.stop()
+
+
+def test_stop_flushes_queued_incident_events(tmp_path):
+    from fusion.incidents import UiEvent
+
+    log = IncidentLog(tmp_path / "incidents.jsonl")
+    pipe = Pipeline(CFG, screen=False, audio=False, processes=False, incident_log=log)
+    pipe.started = True                                    # fusion thread never ran: everything stays queued
+    pipe.report_event(UiEvent(time.time(), "overlay:injected_click_blocked", 1, "safe"))
+    pipe.stop()
+    assert json.loads(log.path.read_text(encoding="utf-8"))["kind"] == "overlay:injected_click_blocked"

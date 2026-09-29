@@ -14,6 +14,8 @@ OCR and ASR share the GPU through models.runtime's DirectML run lock (DML runs a
     p.subscribe(on_state=lambda state: ..., on_event=lambda ev: ...)
     p.start(); ...; p.override(); ...; p.stop()
     p.health()        # per stage: alive, last_event, events, errors, last_error, info
+    p.snapshot()      # latest signals for the dashboard (labels, tactic ids/scores, ages; no text)
+    p.pause(3600); p.resume_monitoring()
 
 Privacy: frames, OCR text and transcripts stay in RAM inside their stage; only labels, tactic ids,
 scores and timestamps cross into fusion. The window shown on the status line is the process name +
@@ -56,6 +58,11 @@ class _Shown:
 @dataclass(frozen=True)
 class _Report:
     event: Any
+
+
+@dataclass(frozen=True)
+class _Pause:
+    until: float | None                # None = resume monitoring
 
 
 @dataclass(frozen=True)
@@ -123,6 +130,16 @@ class Pipeline:
         self._sub_lock = threading.Lock()
         self._state: RiskState | None = None
         self.window: str = ""                                       # "[proc] <title hidden>" of the last OCR'd frame
+        # Latest derived signals for the dashboard: ScreenLabel / IntentResult hold labels, tactic ids,
+        # scores and evidence ids only (never OCR text or transcripts).
+        self.last_screen: tuple[Any, float] | None = None           # (ScreenLabel, frame ts)
+        self.last_call: tuple[Any, float] | None = None             # (IntentResult, chunk end ts)
+        self.last_chunk: tuple[float, bool] | None = None           # (chunk end ts, is_speech)
+        self.last_mask: tuple[int, int] | None = None               # (px masked as Kavach UI, frame px) of the last OCR'd frame
+        self.chunk_counts = {"speech": 0, "silent": 0}
+        self.load_ms: dict[str, float] = {}                         # model load time per stage
+        self.paused_until: float | None = None
+        self._clear_rolling = False
         self.monitor = self.sampler = self.audio = self.ocr = self.asr = None
         self.started = False
 
@@ -155,6 +172,31 @@ class Pipeline:
         """The overlay is on screen: the engine turns it into an OverlayShownEvent
         (time_to_alert_ms = shown - t_trigger), published and written to the incident log."""
         self._q.put(_Shown(incident, self.clock() if shown_ts is None else shown_ts))
+
+    def pause(self, seconds: float) -> None:
+        """Stop watching for `seconds`: OCR/ASR work is skipped, signals are dropped, the score resets."""
+        self._q.put(_Pause(self.clock() + float(seconds)))
+
+    def resume_monitoring(self) -> None:
+        self._q.put(_Pause(None))
+
+    @property
+    def paused(self) -> bool:
+        until = self.paused_until
+        return until is not None and self.clock() < until
+
+    def snapshot(self) -> dict[str, Any]:
+        """Latest signals + remote tools for the dashboard. Derived data only; safe to show."""
+        return {
+            "state": self._state,
+            "remote": list(self.monitor.current()) if self.monitor is not None else [],
+            "screen": self.last_screen,
+            "call": self.last_call,
+            "chunk": self.last_chunk,
+            "mask": self.last_mask,
+            "chunk_counts": dict(self.chunk_counts),
+            "paused_until": self.paused_until if self.paused else None,
+        }
 
     def report_event(self, event: Any) -> None:
         """Derived UI event from the overlay (fusion.incidents.UiEvent): published to event subscribers
@@ -204,6 +246,21 @@ class Pipeline:
         self._threads.clear()
         self.started = False
         self._drain_frames()
+        self._flush_queue()
+
+    def _flush_queue(self) -> None:
+        """After the fusion thread stopped: still log queued overlay reports / overlay-shown events so
+        nothing destined for the incident log is lost on shutdown. Signals are dropped."""
+        while True:
+            try:
+                item = self._q.get_nowait()
+            except queue.Empty:
+                return
+            if isinstance(item, _Report):
+                self._publish_events([item.event])
+            elif isinstance(item, _Shown):
+                shown = self.engine.overlay_shown(item.incident, item.ts)
+                self._publish_events([shown] if shown is not None else [])
 
     def _spawn(self, name: str, target: Callable[[], None]) -> None:
         t = threading.Thread(target=target, name=f"kavach-{name}", daemon=True)
@@ -283,7 +340,9 @@ class Pipeline:
         from capture.screen import ScreenSampler
         from models.ocr import create_backend
 
+        t0 = time.perf_counter()
         self.ocr = create_backend(self.cfg)
+        self.load_ms["ocr"] = (time.perf_counter() - t0) * 1000.0
         with self._hlock:
             self._health["ocr"].info = f"{self.ocr.name}:{self.ocr.provider}"
         self.sampler = ScreenSampler(self.cfg, on_frame=self._on_frame)
@@ -292,7 +351,7 @@ class Pipeline:
 
     def _on_frame(self, frame: Any) -> None:
         # The sampler clears frame.image after this returns; keep our own reference for the OCR thread.
-        self._mark("screen", frame.ts)
+        self._mark("screen", frame.ts, info=f"masked {frame.masked_px} px (Kavach windows)" if frame.masked_px else "")
         if not _latest_put(self._frames, dataclasses.replace(frame)):
             self._dropped("screen")
 
@@ -305,13 +364,19 @@ class Pipeline:
                 frame = self._frames.get(timeout=0.5)
             except queue.Empty:
                 continue
+            if self.paused:
+                frame = None                                     # paused: no OCR at all
+                continue
             try:
+                frame_px = frame.image.shape[0] * frame.image.shape[1]
                 result = self.ocr(frame.image)
                 frame.image = None
                 label = classify(result, frame.window, self.cfg.get("screen_classifier"))
                 n_lines, ocr_ms = len(result.lines), result.total_ms
                 del result
                 self.window = f"[{frame.window.process_name or '?'}] {redact_title(frame.window.title)}"
+                self.last_screen = (label, frame.ts)
+                self.last_mask = (frame.masked_px, frame_px)
                 self.post("screen", label, frame.ts)
                 scores = " ".join(f"{k}={v:.2f}" for k, v in label.labels.items() if k != "normal" and v >= 0.1)
                 self._mark("ocr", info=f"{self.ocr.name}:{self.ocr.provider} {ocr_ms:.0f} ms, {n_lines} lines, "
@@ -335,7 +400,9 @@ class Pipeline:
         from capture.audio import AudioCapture
         from models.asr import ASR
 
+        t0 = time.perf_counter()
         self.asr = ASR(self.cfg)
+        self.load_ms["asr"] = (time.perf_counter() - t0) * 1000.0
         with self._hlock:
             self._health["asr"].info = f"{self.asr.backend_name}:{self.asr.provider}"
         self.audio = AudioCapture(self.cfg, self._on_chunk)
@@ -344,7 +411,9 @@ class Pipeline:
 
     def _on_chunk(self, chunk: Any) -> None:
         self._mark("audio", chunk.ts_end)
-        if not chunk.is_speech:
+        self.last_chunk = (chunk.ts_end, bool(chunk.is_speech))
+        self.chunk_counts["speech" if chunk.is_speech else "silent"] += 1
+        if not chunk.is_speech or self.paused:
             return
         if not _latest_put(self._chunks, chunk):
             self._dropped("audio")
@@ -356,10 +425,16 @@ class Pipeline:
             try:
                 chunk = self._chunks.get(timeout=0.5)
             except queue.Empty:
+                chunk = None
+            if self._clear_rolling:
+                self._clear_rolling = False
+                self.asr.rolling.clear()                         # pause/resume: forget the old call
+            if chunk is None or self.paused:
                 continue
             try:
                 t = self.asr.transcribe(chunk)
                 res = detect(self.asr.rolling, self.cfg.get("intent"))
+                self.last_call = (res, chunk.ts_end)
                 self.post("asr", res, chunk.ts_end)
                 ms = f"{t.total_ms:.0f} ms" if t is not None else "-"
                 self._mark("asr", chunk.ts_end, info=f"{self.asr.backend_name}:{self.asr.provider} {ms}, "
@@ -390,6 +465,13 @@ class Pipeline:
                 elif isinstance(item, _Report):
                     self._publish_events([item.event])
                     item = None
+                elif isinstance(item, _Pause):
+                    self.paused_until = item.until
+                    self.engine.reset()                          # pause or resume: start from a clean score
+                    self._clear_rolling = True                   # the ASR thread clears its transcript
+                    self.last_screen = self.last_call = None
+                elif item is not None and self.paused:
+                    item = None                                  # paused: signals are dropped
                 elif item is not None:
                     self.engine.update(item.payload, now, item.ts)
                 tick = time.monotonic() >= next_tick
