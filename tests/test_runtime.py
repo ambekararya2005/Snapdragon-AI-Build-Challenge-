@@ -1,4 +1,6 @@
+import importlib
 import logging
+from types import SimpleNamespace
 
 import numpy as np
 import onnxruntime as ort
@@ -150,3 +152,90 @@ def test_ort_session_proxy_delegates(dummy_model):
     assert np.array_equal(out[0], ks.session.run(None, feeds)[0])
     assert proxy.get_providers()[0] == "CPUExecutionProvider"
     assert ks.stats()["n"] == 1                        # proxied runs are counted by the wrapper
+
+
+# ---------------------------------------------------------------- strict mode + QNN plugin EP (faked onnxruntime)
+
+QNN_STRICT = {"provider": "qnn", "fallback_to_cpu": False, "qnn": {"backend_path": "QnnHtp.dll"}}
+
+
+@pytest.fixture
+def no_plugins(monkeypatch):
+    monkeypatch.setattr(runtime, "_plugins_tried", True)
+    monkeypatch.setattr(runtime, "_plugins_registered", {})
+
+
+def test_strict_qnn_without_provider_is_a_clear_startup_error(no_plugins, monkeypatch, dummy_model):
+    monkeypatch.setattr(runtime.ort, "get_available_providers", lambda: ["DmlExecutionProvider", "CPUExecutionProvider"])
+    msg = runtime.provider_problem(QNN_STRICT)
+    assert "QNNExecutionProvider" in msg and "fallback_to_cpu: false" in msg and "onnxruntime-qnn" in msg
+    assert runtime.provider_problem({**QNN_STRICT, "fallback_to_cpu": True}) is None     # lenient: falls back
+    with pytest.raises(runtime.ProviderUnavailable):
+        runtime.create_session(dummy_model, "strict", runtime_cfg=QNN_STRICT)
+
+
+class _FakePlugin:
+    @staticmethod
+    def get_ep_name():
+        return "QNNExecutionProvider"
+
+    @staticmethod
+    def get_library_path():
+        return r"C:\fake\onnxruntime_qnn\onnxruntime_providers_qnn.dll"
+
+    @staticmethod
+    def get_qnn_htp_path():
+        return r"C:\fake\onnxruntime_qnn\QnnHtp.dll"
+
+
+def test_qnn_plugin_ep_is_registered_and_attached_per_device(monkeypatch, dummy_model):
+    """onnxruntime-qnn 2.x: registered from its library, attached with add_provider_for_devices, strict."""
+    monkeypatch.setattr(runtime, "_plugins_tried", False)
+    monkeypatch.setattr(runtime, "_plugins_registered", {})
+    registered, attached, created = [], [], []
+    npu = SimpleNamespace(type="NPU")
+    devices = [SimpleNamespace(ep_name="CPUExecutionProvider", device=SimpleNamespace(type="CPU")),
+               SimpleNamespace(ep_name="QNNExecutionProvider", device=npu)]
+    monkeypatch.setattr(runtime.importlib, "import_module",
+                        lambda name: _FakePlugin if name == "onnxruntime_qnn" else importlib.import_module(name))
+    monkeypatch.setattr(runtime.ort, "register_execution_provider_library", lambda n, p: registered.append((n, p)),
+                        raising=False)
+    monkeypatch.setattr(runtime.ort, "get_ep_devices", lambda: devices, raising=False)
+    monkeypatch.setattr(runtime.ort, "OrtHardwareDeviceType", SimpleNamespace(NPU="NPU"), raising=False)
+    monkeypatch.setattr(runtime.ort, "get_available_providers", lambda: ["CPUExecutionProvider"])
+
+    class FakeOptions:
+        def __init__(self):
+            self.entries = {}
+            self.graph_optimization_level = None
+
+        def add_session_config_entry(self, k, v):
+            self.entries[k] = v
+
+        def add_provider_for_devices(self, devs, opts):
+            attached.append((devs, opts))
+
+    class FakeSession:
+        def __init__(self, path, sess_options=None, providers=None):
+            created.append((path, sess_options, providers))
+
+        def get_providers(self):
+            return ["QNNExecutionProvider", "CPUExecutionProvider"]
+
+    monkeypatch.setattr(runtime.ort, "SessionOptions", FakeOptions)
+    monkeypatch.setattr(runtime.ort, "InferenceSession", FakeSession)
+    assert runtime.available_providers() == ["CPUExecutionProvider", "QNNExecutionProvider"]
+    assert runtime.provider_problem(QNN_STRICT) is None
+    s = runtime.create_session(dummy_model, "npu", runtime_cfg=QNN_STRICT)
+    assert registered == [("QNNExecutionProvider", _FakePlugin.get_library_path())]
+    (devs, opts), = attached
+    assert [d.ep_name for d in devs] == ["QNNExecutionProvider"]
+    assert opts["backend_path"] == _FakePlugin.get_qnn_htp_path()             # resolved inside the plugin
+    _, so, providers = created[0]
+    assert providers is None and so.entries == {"session.disable_cpu_ep_fallback": "1"}
+    assert s.actual_provider == "QNNExecutionProvider"
+
+
+def test_input_dtypes_for_fp16_compiled_models(dummy_model):
+    sess = runtime.create_session(dummy_model, "dummy", provider="cpu", runtime_cfg=RT_CFG)
+    assert sess.input_dtypes() == {"input": np.float32}

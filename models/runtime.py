@@ -37,6 +37,7 @@ PROVIDER_NAMES = {
 }
 CPU = PROVIDER_NAMES["cpu"]
 ORT_PACKAGES = ("onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-qnn")
+# onnxruntime-qnn >= 2.0 is a plugin EP meant to sit next to plain onnxruntime (not a conflicting build).
 STATS_WINDOW = 100
 
 _ORT_DTYPES = {
@@ -78,9 +79,110 @@ def provider_config(key: str, runtime_cfg: Mapping[str, Any]) -> tuple[str, dict
     return PROVIDER_NAMES[key], {k: str(v) for k, v in opts.items()}
 
 
-def _session_options(provider_name: str) -> ort.SessionOptions:
+class ProviderUnavailable(RuntimeError):
+    """The configured provider is missing and runtime.fallback_to_cpu is false."""
+
+
+# ---------------------------------------------------------------- plugin execution providers
+# onnxruntime-qnn 2.x is a *plugin* EP (bundles QAIRT 2.50, matching the AI Hub compile) installed next to
+# plain onnxruntime >= 1.24.2: it is registered from its library and attached to sessions per device
+# (SessionOptions.add_provider_for_devices); it does not appear in ort.get_available_providers().
+# onnxruntime-qnn 1.x (a full onnxruntime build, QAIRT 2.42) and DirectML / CUDA / CPU use the classic path.
+# PREPARED, NOT YET RUN ON A SNAPDRAGON DEVICE: covered by unit tests with a faked onnxruntime only.
+
+_PLUGIN_MODULES = {PROVIDER_NAMES["qnn"]: "onnxruntime_qnn"}
+_plugin_lock = threading.Lock()
+_plugins_registered: dict[str, Any] = {}               # provider name -> plugin module (registered once)
+_plugins_tried = False
+
+
+def register_plugin_eps() -> list[str]:
+    """Register the installed plugin EPs with onnxruntime once. Returns the registered provider names;
+    empty when no plugin package is installed or onnxruntime predates plugin EPs."""
+    global _plugins_tried
+    with _plugin_lock:
+        if not _plugins_tried:
+            _plugins_tried = True
+            if hasattr(ort, "register_execution_provider_library"):
+                for provider, module in _PLUGIN_MODULES.items():
+                    try:
+                        mod = importlib.import_module(module)
+                    except ImportError:
+                        continue
+                    try:
+                        ort.register_execution_provider_library(mod.get_ep_name(), mod.get_library_path())
+                        _plugins_registered[provider] = mod
+                        log.info("registered plugin EP %s from %s", provider, module)
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("plugin EP %s (%s) could not be registered: %s: %s", provider, module,
+                                    type(e).__name__, e)
+        return list(_plugins_registered)
+
+
+def plugin_ep_devices(provider_name: str) -> list[Any]:
+    register_plugin_eps()
+    if not hasattr(ort, "get_ep_devices"):
+        return []
+    return [d for d in ort.get_ep_devices() if getattr(d, "ep_name", None) == provider_name]
+
+
+def _is_npu(ep_device: Any) -> bool:
+    npu = getattr(getattr(ort, "OrtHardwareDeviceType", None), "NPU", None)
+    return npu is not None and getattr(getattr(ep_device, "device", None), "type", None) == npu
+
+
+def available_providers() -> list[str]:
+    """Built-in providers of the installed onnxruntime plus registered plugin EPs that have a device."""
+    names = list(ort.get_available_providers())
+    for provider in register_plugin_eps():
+        if provider not in names and plugin_ep_devices(provider):
+            names.append(provider)
+    return names
+
+
+def _plugin_options(provider_name: str, options: Mapping[str, str]) -> dict[str, str]:
+    """QNN plugin: a bare backend_path (QnnHtp.dll) is resolved inside the plugin package, which ships it."""
+    opts = dict(options)
+    mod = _plugins_registered.get(provider_name)
+    bp = opts.get("backend_path")
+    if mod is not None and bp and Path(bp).name == bp and hasattr(mod, "get_qnn_htp_path") \
+            and bp.lower() == "qnnhtp.dll":
+        opts["backend_path"] = mod.get_qnn_htp_path()
+    return opts
+
+
+def installed_ort_packages() -> list[str]:
+    out = []
+    for pkg in ORT_PACKAGES:
+        try:
+            out.append(f"{pkg}=={importlib.metadata.version(pkg)}")
+        except importlib.metadata.PackageNotFoundError:
+            pass
+    return out
+
+
+def provider_problem(runtime_cfg: Mapping[str, Any]) -> str | None:
+    """Why a strict config (fallback_to_cpu: false) cannot run here, or None. Used by main.py before
+    anything starts, so a missing NPU provider is a loud startup error, never a quiet CPU run."""
+    key = str(runtime_cfg.get("provider", "cpu")).strip().lower()
+    requested, _ = provider_config(key, runtime_cfg)
+    available = available_providers()
+    if requested in available or bool(runtime_cfg.get("fallback_to_cpu", True)):
+        return None
+    pkgs = ", ".join(installed_ort_packages()) or "none"
+    hint = ("install onnxruntime-qnn on native ARM64 Python 3.11 on a Snapdragon X PC (requirements-snapdragon.txt)"
+            if key == "qnn" else f"install the onnxruntime package that provides {requested}")
+    return (f"runtime.provider is {key!r} ({requested}) with fallback_to_cpu: false, but this onnxruntime "
+            f"({pkgs}, {platform.machine()}) only has {available}. Refusing to start rather than run on the CPU. "
+            f"Fix: {hint}, or use a config with a provider available here (config.yaml).")
+
+
+def _session_options(provider_name: str, strict: bool = False) -> ort.SessionOptions:
     so = ort.SessionOptions()
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    if strict and provider_name != CPU:
+        # fallback_to_cpu: false also forbids ORT from placing single unsupported operators on the CPU.
+        so.add_session_config_entry("session.disable_cpu_ep_fallback", "1")
     if provider_name == PROVIDER_NAMES["dml"]:
         # DirectML does not support memory pattern optimisation or parallel execution.
         so.enable_mem_pattern = False
@@ -169,6 +271,11 @@ class KavachSession:
     def input_specs(self) -> list[dict[str, Any]]:
         return [{"name": i.name, "shape": list(i.shape), "dtype": i.type} for i in self.session.get_inputs()]
 
+    def input_dtypes(self) -> dict[str, Any]:
+        """Input name -> numpy dtype. Compiled NPU models (AI Hub precompiled_qnn_onnx) often take float16
+        where the plain export takes float32; callers cast their feeds with this."""
+        return {i.name: _ORT_DTYPES[i.type] for i in self.session.get_inputs() if i.type in _ORT_DTYPES}
+
     def output_specs(self) -> list[dict[str, Any]]:
         return [{"name": o.name, "shape": list(o.shape), "dtype": o.type} for o in self.session.get_outputs()]
 
@@ -250,18 +357,25 @@ def create_session(
     requested, options = provider_config(key, rt)
     model_path = str(model_path)
 
-    available = ort.get_available_providers()
+    available = available_providers()
     use = requested
     if requested not in available:
         if not fallback:
-            raise RuntimeError(f"{name}: requested {requested} is not available (available: {available})")
+            raise ProviderUnavailable(f"{name}: requested {requested} is not available (available: {available}) "
+                                      f"and runtime.fallback_to_cpu is false")
         log.warning("%s: requested %s is not available (available: %s); using %s", name, requested, available, CPU)
         use = CPU
 
     try:
-        session = ort.InferenceSession(
-            model_path, sess_options=_session_options(use), providers=_providers_list(use, options)
-        )
+        so = _session_options(use, strict=not fallback)
+        if use != CPU and use not in ort.get_available_providers():
+            # Plugin EP (onnxruntime-qnn 2.x on top of onnxruntime): attached per device, not by name.
+            devices = plugin_ep_devices(use)
+            npu = [d for d in devices if _is_npu(d)] or devices
+            so.add_provider_for_devices(npu, _plugin_options(use, options))
+            session = ort.InferenceSession(model_path, sess_options=so)
+        else:
+            session = ort.InferenceSession(model_path, sess_options=so, providers=_providers_list(use, options))
     except Exception as e:
         if use == CPU or not fallback:
             raise
@@ -305,18 +419,15 @@ def clear_registry() -> None:
 
 
 def system_info() -> dict[str, Any]:
-    installed = []
-    for pkg in ORT_PACKAGES:
-        try:
-            installed.append(f"{pkg}=={importlib.metadata.version(pkg)}")
-        except importlib.metadata.PackageNotFoundError:
-            pass
-    if len(installed) > 1:
+    installed = installed_ort_packages()
+    builds = [p for p in installed if not (p.startswith("onnxruntime-qnn==") and not p.split("==")[1].startswith("1."))]
+    if len(builds) > 1:                                  # onnxruntime-qnn 2.x is a plugin, not a second build
         log.warning("multiple onnxruntime packages installed (they conflict): %s", installed)
     return {
         "onnxruntime_version": ort.__version__,
         "onnxruntime_packages": installed,
-        "available_providers": ort.get_available_providers(),
+        "available_providers": available_providers(),
+        "plugin_eps": register_plugin_eps(),
         "machine": platform.machine(),
         "python": platform.python_version(),
     }

@@ -235,6 +235,14 @@ class Pipeline:
         if self._enabled["audio"]:
             self._guard("asr", self._start_audio)
 
+    def strict_start_failures(self) -> list[str]:
+        """With runtime.fallback_to_cpu: false, stages that failed to start ("stage: error"). Callers exit
+        on these instead of running with a stage silently disabled (e.g. a missing compiled NPU model)."""
+        if (self.cfg.get("runtime") or {}).get("fallback_to_cpu", True):
+            return []
+        return [f"{stage}: {h['last_error']}" for stage, h in self.health().items()
+                if h["enabled"] and h["last_error"] and "start failed" in h["last_error"]]
+
     def stop(self, timeout: float = 10.0) -> None:
         if not self.started:
             return
@@ -546,8 +554,13 @@ def _main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     from kavach_config import get_config
+    from models import runtime
 
     cfg = get_config().to_dict()
+    problem = runtime.provider_problem(cfg["runtime"])
+    if problem:
+        print(f"Kavach cannot start: {problem}", file=sys.stderr, flush=True)
+        return 2
     if args.ocr_backend:
         cfg["ocr"]["backend"] = args.ocr_backend
     pipe = Pipeline(cfg, screen=not args.no_screen, audio=not args.no_audio, processes=not args.no_processes,
@@ -572,6 +585,12 @@ def _main(argv: list[str] | None = None) -> int:
     for name, st in h.items():
         if st["last_error"]:
             print(f"  stage {name}: {st['last_error']}", flush=True)
+    failed = pipe.strict_start_failures()
+    if failed:
+        pipe.stop()
+        print("Kavach cannot start (runtime.fallback_to_cpu is false, so no stage may fall back or be skipped):\n  "
+              + "\n  ".join(failed), file=sys.stderr, flush=True)
+        return 2
 
     max_score, bands = 0, {}
     deadline = time.monotonic() + args.seconds if args.seconds else None

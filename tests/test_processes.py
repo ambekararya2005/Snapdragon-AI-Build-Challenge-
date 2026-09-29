@@ -266,3 +266,41 @@ def test_cmdline_shown_in_output():
 
     hidden = P._fmt_state(state, show_text=False)
     assert "AnyDesk.exe --control" in hidden and "Program Files" not in hidden
+
+
+# ---------------------------------------------------------------- session_args (measured: portable AnyDesk + phone)
+
+PORTABLE = r"C:\Users\arya\Downloads\AnyDesk.exe"
+
+
+def test_portable_anydesk_session_is_the_backend_process():
+    """Measured 2026-09-29: idle = UI + --local-service (one TCP to AnyDesk's servers, always up) + --local-control;
+    --backend runs only while the phone is connected. The always-on connection must not read as a session."""
+    known = [{"name": "AnyDesk", "exe_names": ["AnyDesk.exe"], "idle_args": ["--service", "--control", "--tray"],
+              "session_args": ["--backend"]}]
+    world = FakeWorld()
+    mon = P.ProcessMonitor({"processes": {"known_tools": known, "extra_exe_names": []}},
+                           process_iter=world.iter, conn_checker=world.check)
+    mon._current_users = ME
+    idle = [proc(11008, "AnyDesk.exe", cmdline=[PORTABLE]),
+            proc(4968, "AnyDesk.exe", cmdline=[PORTABLE, "--local-service"]),
+            proc(31612, "AnyDesk.exe", cmdline=[PORTABLE, "--local-control"])]
+    world.procs = idle
+    world.conns = {4968: True}                                          # the always-on relay connection
+    assert types(mon.poll()) == [("tool_started", "AnyDesk"), ("live_started", "AnyDesk")]
+    assert mon.current()[0].active_session is False                     # app open, nobody connected
+
+    world.procs = idle + [proc(23384, "AnyDesk.exe", cmdline=[PORTABLE, "--backend"])]
+    assert types(mon.poll()) == [("session_active", "AnyDesk")]
+    assert mon.current()[0].roles[23384] == "user"                      # so "Stop and get help" suspends it
+
+    world.procs = idle
+    assert types(mon.poll()) == [("session_ended", "AnyDesk")]
+    assert mon.is_remote_access_live()                                   # the app is still open
+
+
+def test_config_anydesk_backend_is_the_session_marker_not_idle():
+    from kavach_config import load_config
+
+    ad = next(t for t in load_config(env={}).processes.known_tools if t["name"] == "AnyDesk")
+    assert "--backend" in ad["session_args"] and "--backend" not in ad["idle_args"]

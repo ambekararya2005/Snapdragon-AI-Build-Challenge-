@@ -22,9 +22,15 @@ processes:
   known_tools:
     # idle_args: a current-user process whose cmdline has one of these is role "tray"
     # (installed / idle, not live remote access). Matched per argument, case-insensitive.
+    # session_args: a process with one of these exists only while a remote session is connected; for such a
+    # tool that is the session signal (instead of "has an external TCP connection").
     - name: AnyDesk
       exe_names: [AnyDesk.exe]
-      idle_args: ["--service", "--control", "--tray", "--backend"]
+      idle_args: ["--service", "--control", "--tray"]
+      # Measured 2026-09-29, portable AnyDesk + phone: idle = UI + --local-service (1 TCP to AnyDesk's servers,
+      # always up) + --local-control; a --backend process runs only from connect to disconnect. So --backend is
+      # the session marker (and must stay user-role so "Stop and get help" suspends it).
+      session_args: ["--backend"]
     - name: TeamViewer
       exe_names: [TeamViewer.exe, TeamViewer_Service.exe]
       idle_args: []

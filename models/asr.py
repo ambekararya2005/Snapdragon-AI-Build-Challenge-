@@ -256,6 +256,14 @@ class WhisperOnnx:
         H, D, nl = m["decoder_heads"], m["d_model"], m["decoder_layers"]
         self._self_shapes = {f"k_cache_self_{i}_in": (H, 1, D // H, self.L - 1) for i in range(nl)} | \
                             {f"v_cache_self_{i}_in": (H, 1, self.L - 1, D // H) for i in range(nl)}
+        # The AI Hub compiled models (weights/qnn/) take/return float16 and list outputs in their own
+        # order: outputs are requested by name, feeds cast to each session's input types (no-op on float32).
+        self._enc_types = self.encoder.input_dtypes()
+        self._dec_types = self.decoder.input_dtypes()
+
+    @staticmethod
+    def _cast(feeds: dict[str, np.ndarray], types: Mapping[str, Any]) -> dict[str, np.ndarray]:
+        return {k: v if k not in types or v.dtype == types[k] else v.astype(types[k]) for k, v in feeds.items()}
 
     def features(self, audio: np.ndarray) -> np.ndarray:
         m = self.meta
@@ -265,20 +273,22 @@ class WhisperOnnx:
         """-> (content token ids, encoder_ms, decoder_ms). audio: float32 mono 16 kHz, <= 30 s."""
         t0 = time.perf_counter()
         mel = self.features(audio)
-        cross = dict(zip(self.enc_out, self.encoder.run({"input_features": mel})))
+        cross = dict(zip(self.enc_out, self.encoder.run(self._cast({"input_features": mel}, self._enc_types),
+                                                        self.enc_out)))
         t1 = time.perf_counter()
 
         feeds: dict[str, np.ndarray] = {k: np.zeros(s, np.float32) for k, s in self._self_shapes.items()}
         feeds.update(cross)
+        feeds = self._cast(feeds, self._dec_types)
         mask = np.full((1, 1, 1, self.L), self.meta["mask_neg"], dtype=np.float32)
         tokens = list(self.prefix)
         out: list[int] = []
         for n in range(self.L - 1):
             mask[..., self.L - n - 1] = 0.0
             feeds["input_ids"] = np.array([[tokens[n]]], dtype=np.int32)
-            feeds["attention_mask"] = mask
+            feeds["attention_mask"] = mask.astype(self._dec_types.get("attention_mask", np.float32), copy=False)
             feeds["position_ids"] = np.array([n], dtype=np.int32)
-            res = self.decoder.run(feeds)
+            res = self.decoder.run(feeds, self.dec_out)
             for name, val in zip(self.dec_out[1:], res[1:]):
                 feeds[name.replace("_out", "_in")] = val
             if n < len(tokens) - 1:
@@ -352,7 +362,8 @@ class ASR:
         if backend is not None:
             self.backend = backend
         elif self.backend_name == "aihub_whisper":
-            model_dir = ROOT / "weights" / "asr" / a.get("model", "whisper_base")
+            # asr.model_dir overrides weights/asr/<asr.model> (e.g. the NPU-compiled weights/qnn/whisper_base)
+            model_dir = ROOT / (a.get("model_dir") or Path("weights") / "asr" / a.get("model", "whisper_base"))
             self.backend: Any = WhisperOnnx(model_dir, provider, config.get("runtime"), language,
                                             int(a.get("max_tokens", 96)))
         else:

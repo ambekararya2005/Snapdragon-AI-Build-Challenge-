@@ -94,3 +94,30 @@ def test_get_config_is_cached(monkeypatch):
         assert get_config() is get_config()
     finally:
         get_config.cache_clear()
+
+
+# ---------------------------------------------------------------- extends + the Snapdragon config
+
+def test_extends_merges_over_the_base(tmp_path):
+    over = tmp_path / "over.yaml"
+    over.write_text(f"extends: {REAL.as_posix()}\nruntime: {{provider: cpu}}\nfusion: {{bands: {{caution: 55}}}}\n")
+    cfg = load_config(over, env={})
+    assert cfg.runtime.provider == "cpu" and cfg.runtime.fallback_to_cpu is True        # rest of runtime kept
+    assert (cfg.fusion.bands.caution, cfg.fusion.bands.alert) == (55, 70)
+    assert "extends" not in cfg and cfg.config_path == str(over.resolve())
+
+
+def test_extends_loop_is_an_error(tmp_path):
+    (tmp_path / "a.yaml").write_text("extends: b.yaml\n")
+    (tmp_path / "b.yaml").write_text("extends: a.yaml\n")
+    with pytest.raises(ConfigError, match="loop"):
+        load_config(tmp_path / "a.yaml", env={})
+
+
+def test_snapdragon_config_is_strict_qnn_on_compiled_models():
+    cfg = load_config(REAL.parent / "config.snapdragon.yaml", env={})
+    assert cfg.runtime.provider == "qnn" and cfg.runtime.fallback_to_cpu is False
+    assert cfg.runtime.qnn.backend_path == "QnnHtp.dll" and cfg.ocr.backend == "native"
+    assert cfg.ocr.native_det.startswith("weights/qnn/") and "{w}" in cfg.ocr.native_rec
+    assert cfg.asr.model_dir == "weights/qnn/whisper_base"
+    assert cfg.fusion == load_config(env={}).fusion                                   # everything else inherited

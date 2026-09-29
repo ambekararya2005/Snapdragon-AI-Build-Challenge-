@@ -1,8 +1,11 @@
-.venv/
-.venv-aihub/
+.venv*/
 weights/
 __pycache__/
 *.onnx
 *.bin
 logs/
 .pytest_cache/
+# credentials never belong in the repo (qai-hub keeps its token in %USERPROFILE%\.qai_hub\client.ini)
+.qai_hub/
+client.ini
+.env

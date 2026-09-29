@@ -41,7 +41,8 @@ and fuses these signals into a risk score that triggers a full-screen warning.
   `onnxruntime-gpu` and `onnxruntime-qnn` conflict with each other. Never list onnxruntime in
   `requirements.txt`; install it per machine:
   - dev: `onnxruntime-directml`
-  - Snapdragon: `onnxruntime-qnn` on native ARM64 Python
+  - Snapdragon: plain `onnxruntime` + the `onnxruntime-qnn` 2.x plugin EP (not a separate build, so the pair does
+    not conflict) on native ARM64 Python: `requirements-snapdragon.txt`, `config.snapdragon.yaml`
   - fallback: `onnxruntime`
 
 ## Layout

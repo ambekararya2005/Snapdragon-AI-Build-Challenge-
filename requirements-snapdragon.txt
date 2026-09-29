@@ -1,0 +1,51 @@
+# Kavach on a Snapdragon X PC: native ARM64 Python 3.11 (python.org "Windows installer (ARM64)"; py -3.11-arm64).
+#
+# STATUS: PREPARED, NOT YET RUN ON A SNAPDRAGON DEVICE. Every line below was checked against PyPI for a
+# cp311 win_arm64 (or pure-Python) wheel with scripts\check_arm64_wheels.py on 2026-09-29; nothing here has
+# been installed or executed on ARM64 hardware yet.
+#
+# onnxruntime on Snapdragon = plain onnxruntime + the onnxruntime-qnn PLUGIN execution provider.
+# onnxruntime-qnn 2.x is a plugin (no onnxruntime build of its own; it requires onnxruntime>=1.24.2), so the
+# pair does not conflict. 2.6.0 bundles QAIRT/QNN 2.50.40, the same QAIRT line (v2.50) AI Hub used to
+# compile weights/qnn/ (bench/results/benchmark_table.md). onnxruntime-qnn 1.24.4 (an all-in-one build) bundles
+# QNN 2.42, older than the compile, so it is not used. models/runtime.py registers the plugin
+# (register_execution_provider_library) and attaches it per NPU device.
+#
+#   py -3.11-arm64 -m venv .venv
+#   .\.venv\Scripts\python.exe -m pip install -r requirements-snapdragon.txt
+#   .\.venv\Scripts\python.exe scripts\fetch_qnn_models.py --check      # weights/qnn/ copied from the dev PC
+#   .\.venv\Scripts\python.exe main.py --config config.snapdragon.yaml
+
+onnxruntime==1.24.4          # win_arm64 cp311 wheel
+onnxruntime-qnn==2.6.0       # win_arm64 cp311 wheel; plugin EP, QAIRT 2.50.40, ships QnnHtp.dll
+
+numpy==2.4.6                 # win_arm64 wheel
+psutil==7.2.2                # win_arm64 wheel
+pywin32==312                 # win_arm64 wheel
+pillow==12.3.0               # win_arm64 wheel
+rapidfuzz==3.14.6            # win_arm64 wheel
+mss==10.2.0                  # pure Python (ctypes -> Windows GDI)
+PyYAML==6.0.3                # sdist only: builds as pure Python without libyaml (no compiler needed) - verify on device
+pytest==9.1.1                # pure Python (tests)
+
+# ---- NO win_arm64 wheel on PyPI: Kavach cannot run natively until each has its fallback in place ----
+# Tk (dashboard / overlay) ships with the python.org ARM64 installer.
+#
+# opencv-python==5.0.0.93    sdist only; no OpenCV flavour (headless / contrib / rolling) publishes win_arm64.
+#                            Used by capture/screen.py (resize, colour, thumbnails) and models/ocr_native.py
+#                            (DB post-processing: findContours, minAreaRect, boxPoints, fillPoly, dilate,
+#                            warpPerspective). Fallback: port those calls to numpy + Pillow + scikit-image
+#                            (scikit-image 0.26.0 and scipy 1.17.1 have win_arm64 wheels); or build OpenCV
+#                            from source with the MSVC ARM64 toolchain.
+# shapely==2.1.2             sdist only (needs GEOS). Used only for Polygon(box).area / .length in the DB
+#                            unclip step. Fallback: numpy shoelace area + perimeter (a few lines).
+# pyclipper==1.4.0           sdist only (Cython/C++; builds with VS Build Tools "ARM64" components).
+#                            Fallback without a compiler: offset the 4-point DB box along its edge normals in numpy.
+# soxr==1.1.0                sdist only (CMake + C). Used to resample loopback audio (48 kHz -> 16 kHz).
+#                            Fallback: scipy.signal.resample_poly (scipy 1.17.1 has a win_arm64 wheel).
+# PyAudioWPatch==0.2.12.8    no win_arm64 wheel and no sdist (WASAPI loopback capture).
+#                            Fallback: soundcard==0.4.6 (pure Python over cffi 2.1.1, which has a win_arm64
+#                            wheel; WASAPI loopback via include_loopback=True) behind capture/audio.py's stream layer.
+#
+# Not needed on the device: rapidocr_onnxruntime (the NPU path is the native OCR backend; weights/ocr/keys.txt
+# is copied from the dev PC), onnx and qai-hub (dev-time export / AI Hub tools), rich (dev console).

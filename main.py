@@ -63,14 +63,36 @@ def startup_report(pipe, t_start: float) -> list[str]:
     return lines
 
 
+def preflight() -> str | None:
+    """Config errors, or a strict config (runtime.fallback_to_cpu: false) whose provider is missing here.
+    Returns a message for a loud exit; None when Kavach may start."""
+    from kavach_config import ConfigError, get_config
+
+    try:
+        cfg = get_config()
+    except ConfigError as e:
+        return f"config error: {e}"
+    from models import runtime
+
+    return runtime.provider_problem(cfg.runtime)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.config:
         os.environ["KAVACH_CONFIG"] = str(Path(args.config).resolve())
     if args.provider:
         os.environ["KAVACH_PROVIDER"] = args.provider
+    if args.config or args.provider:
+        from kavach_config import get_config
+
+        get_config.cache_clear()                           # the overrides above must win over a cached config
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    problem = preflight()
+    if problem:
+        print(f"Kavach cannot start: {problem}", file=sys.stderr, flush=True)
+        return 2
 
     if args.plain:
         from kavach.pipeline import _main as run_plain
@@ -92,6 +114,13 @@ def main(argv: list[str] | None = None) -> int:
     pipe.start()
     for line in startup_report(pipe, t0):
         print(line, flush=True)
+    failed = pipe.strict_start_failures()
+    if failed:
+        pipe.stop()
+        root.destroy()
+        print("Kavach cannot start (runtime.fallback_to_cpu is false, so no stage may fall back or be skipped):\n  "
+              + "\n  ".join(failed), file=sys.stderr, flush=True)
+        return 2
 
     dash = None
     if not args.no_dashboard:

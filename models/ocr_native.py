@@ -295,15 +295,19 @@ class NativeOcrBackend:
 
         def load(path: Path, name: str) -> runtime.KavachSession:
             if not path.is_file():
-                raise FileNotFoundError(f"{path} missing; run scripts/fix_ocr_shapes.py")
+                raise FileNotFoundError(f"{path} missing; run scripts/fix_ocr_shapes.py "
+                                        f"(or scripts/fetch_qnn_models.py for weights/qnn/)")
             s = runtime.create_session(path, name, runtime_cfg=rt)
             log.info("%s: requested %s, running on %s", name, s.requested_provider, s.actual_provider)
             return s
 
-        self.det = load(OCR_DIR / "det_static.onnx", "ocr.det")
+        # config ocr.native_det / ocr.native_rec ({w} = bucket width); default: the plain static exports
+        det_path = ROOT / ocfg.get("native_det", "weights/ocr/det_static.onnx")
+        rec_path = str(ocfg.get("native_rec", "weights/ocr/rec_static_{w}.onnx"))
+        self.det = load(det_path, "ocr.det")
         self.det_input = self.det.input_specs()[0]["name"]
         _, _, self.det_h, self.det_w = self.det.input_specs()[0]["shape"]
-        self.rec = {w: load(OCR_DIR / f"rec_static_{w}.onnx", f"ocr.rec_{w}") for w in self.buckets}
+        self.rec = {w: load(ROOT / rec_path.format(w=w), f"ocr.rec_{w}") for w in self.buckets}
         self.rec_input = {w: s.input_specs()[0]["name"] for w, s in self.rec.items()}
         self.rec_batch = {w: int(s.input_specs()[0]["shape"][0]) for w, s in self.rec.items()}
 

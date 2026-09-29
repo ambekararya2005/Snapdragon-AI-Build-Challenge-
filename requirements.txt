@@ -4,7 +4,7 @@
 # at a time (onnxruntime, onnxruntime-directml, onnxruntime-gpu and onnxruntime-qnn conflict),
 # so it is installed separately per machine:
 #   dev (Windows x64, Ryzen + RTX)  -> onnxruntime-directml   (scripts\setup_dev.ps1 does this)
-#   Snapdragon X (native ARM64 Python) -> onnxruntime-qnn
+#   Snapdragon X (native ARM64 Python) -> onnxruntime + onnxruntime-qnn 2.x plugin EP: requirements-snapdragon.txt
 #   fallback                        -> onnxruntime
 # rapidocr_onnxruntime depends on plain `onnxruntime`; setup_dev.ps1 removes it afterwards
 # and installs the right package last.

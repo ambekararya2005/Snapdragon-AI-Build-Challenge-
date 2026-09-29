@@ -7,6 +7,8 @@ Loads config.yaml once (cached) and returns a nested dict with attribute access:
     cfg.runtime.provider        # "dml"
     cfg["runtime"]["provider"]  # same
 
+A config file may start with `extends: config.yaml` and list only what differs (config.snapdragon.yaml).
+
 Env overrides:
     KAVACH_CONFIG   - alternate path to the YAML file
     KAVACH_PROVIDER - overrides runtime.provider (qnn | cuda | dml | cpu)
@@ -98,10 +100,18 @@ def validate(cfg: AttrDict) -> None:
         raise ConfigError("fusion.bands.caution must be lower than fusion.bands.alert")
 
 
-def load_config(path: str | os.PathLike | None = None, env: Mapping[str, str] | None = None) -> AttrDict:
-    """Load, apply env overrides and validate. Uncached; most code should call get_config()."""
-    env = os.environ if env is None else env
-    cfg_path = resolve_config_path(path, env)
+def _deep_merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict:
+    out = dict(base)
+    for k, v in overlay.items():
+        out[k] = _deep_merge(out[k], v) if isinstance(v, Mapping) and isinstance(out.get(k), Mapping) else v
+    return out
+
+
+def _load_raw(cfg_path: Path, _seen: tuple[Path, ...] = ()) -> dict:
+    """YAML mapping of cfg_path; a top-level `extends: other.yaml` (relative to this file) is loaded first
+    and this file's keys are merged over it (nested mappings key by key, everything else replaced)."""
+    if cfg_path in _seen:
+        raise ConfigError(f"config extends loop: {' -> '.join(str(p) for p in (*_seen, cfg_path))}")
     if not cfg_path.is_file():
         raise ConfigError(f"config file not found: {cfg_path}")
     try:
@@ -110,7 +120,18 @@ def load_config(path: str | os.PathLike | None = None, env: Mapping[str, str] | 
         raise ConfigError(f"invalid YAML in {cfg_path}: {e}") from e
     if not isinstance(raw, Mapping):
         raise ConfigError(f"{cfg_path} must contain a mapping at top level")
+    raw = dict(raw)
+    base = raw.pop("extends", None)
+    if base:
+        raw = _deep_merge(_load_raw((cfg_path.parent / base).resolve(), (*_seen, cfg_path)), raw)
+    return raw
 
+
+def load_config(path: str | os.PathLike | None = None, env: Mapping[str, str] | None = None) -> AttrDict:
+    """Load, apply env overrides and validate. Uncached; most code should call get_config()."""
+    env = os.environ if env is None else env
+    cfg_path = resolve_config_path(path, env)
+    raw = _load_raw(cfg_path)
     cfg = AttrDict(raw)
     if "runtime" in cfg and env.get("KAVACH_PROVIDER"):
         cfg.runtime["provider"] = env["KAVACH_PROVIDER"].strip().lower()

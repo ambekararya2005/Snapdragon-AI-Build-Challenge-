@@ -4,8 +4,10 @@ Each matched process gets a role: "service" (SYSTEM / LOCAL SERVICE / NETWORK SE
 user, or exe name containing "Service"), "tray" (current user, but cmdline has one of the tool's
 config `idle_args`, e.g. AnyDesk --tray / --control), "user" (current user, no idle args) or "other"
 (another user). Installed AnyDesk/TeamViewer keep service and tray processes running all day, so only
-a user-role process counts as remote access being live. An ESTABLISHED non-loopback TCP connection on
-a user-role process marks an active session (extra evidence). Only local socket state is read;
+a user-role process counts as remote access being live. An active session (extra evidence) is a
+user-role process with one of the tool's config `session_args` (AnyDesk: --backend, which runs only while
+someone is connected); for tools without session_args, an ESTABLISHED non-loopback TCP connection on a
+user-role process. Only local socket state is read;
 nothing is sent. Cmdlines are read for matched tool processes only and are never logged; CLI output
 shows only the exe name and flag names unless privacy.debug_show_text is true (see kavach_privacy).
 
@@ -84,9 +86,10 @@ def build_exe_index(known_tools: Iterable[Mapping[str, Any]], extra_exe_names: I
     return index
 
 
-def build_idle_args(known_tools: Iterable[Mapping[str, Any]]) -> dict[str, tuple[str, ...]]:
-    """Tool name -> lower-cased cmdline args that mark an idle (installed, not live) process."""
-    return {t["name"]: tuple(a.lower() for a in (t.get("idle_args") or [])) for t in known_tools}
+def build_idle_args(known_tools: Iterable[Mapping[str, Any]], key: str = "idle_args") -> dict[str, tuple[str, ...]]:
+    """Tool name -> lower-cased cmdline args that mark an idle (installed, not live) process
+    (key="session_args": args of a process that exists only during a remote session)."""
+    return {t["name"]: tuple(a.lower() for a in (t.get(key) or [])) for t in known_tools}
 
 
 def has_idle_arg(cmdline: Iterable[str] | None, idle_args: Iterable[str]) -> bool:
@@ -208,6 +211,7 @@ class ProcessMonitor:
         self.poll_interval_s = float(pcfg.get("poll_interval_s", 2.0))
         self.index = build_exe_index(pcfg.get("known_tools", []), [*pcfg.get("extra_exe_names", []), *extra_exe_names])
         self.idle_args = build_idle_args(pcfg.get("known_tools", []))
+        self.session_args = build_idle_args(pcfg.get("known_tools", []), "session_args")
         self.callback = callback
         self.events: queue.Queue[ProcessEvent] = queue.Queue(maxsize=1000)
         self._process_iter = process_iter or self._psutil_iter
@@ -259,7 +263,13 @@ class ProcessMonitor:
             for tool, procs in found.items():
                 roles = {pid: procs[pid][0] for pid in sorted(procs)}
                 user_pids = [pid for pid, role in roles.items() if role == ROLE_USER]
-                session = combine_session(self._conn_checker(pid) for pid in user_pids) if user_pids else False
+                marker = self.session_args.get(tool)
+                if marker:
+                    # The tool keeps a connection to its own servers even when idle (AnyDesk): a session-only
+                    # process is the reliable signal.
+                    session = any(has_idle_arg(procs[pid][1], marker) for pid in user_pids)
+                else:
+                    session = combine_session(self._conn_checker(pid) for pid in user_pids) if user_pids else False
                 prev = self._states.get(tool)
                 state = RemoteToolState(
                     tool=tool, pids=sorted(roles), roles=roles,

@@ -1,0 +1,29 @@
+# Kavach on a Snapdragon X PC (Hexagon NPU). Everything not listed here comes from config.yaml.
+#
+#   python main.py --config config.snapdragon.yaml
+#
+# Needs native ARM64 Python 3.11 with onnxruntime-qnn (requirements-snapdragon.txt) and the AI Hub compiled
+# models in weights/qnn/ (python scripts\fetch_qnn_models.py; source job ids in weights/qnn/manifest.json).
+# Strict: no CPU fallback. If QNNExecutionProvider or a compiled model is missing, Kavach refuses to start
+# instead of silently running on the CPU, and ORT may not place single operators on the CPU either
+# (session.disable_cpu_ep_fallback) - so a run with this config is an NPU run or no run.
+# STATUS: prepared, not yet run on a Snapdragon device.
+extends: config.yaml
+
+runtime:
+  provider: qnn
+  fallback_to_cpu: false
+  qnn:
+    backend_path: QnnHtp.dll       # ships inside the onnxruntime-qnn wheel
+    htp_performance_mode: burst
+    enable_htp_fp16_precision: "1"
+
+ocr:
+  backend: native                  # the NPU path (rapidocr uses dynamic shapes and cannot be compiled)
+  native_det: weights/qnn/det_static/det_static.onnx
+  native_rec: weights/qnn/rec_static_{w}/rec_static_{w}.onnx
+  rec_buckets: [320, 640, 1280]    # one compiled model per bucket (AI Hub compile jobs)
+
+asr:
+  backend: aihub_whisper
+  model_dir: weights/qnn/whisper_base   # compiled encoder/decoder (float16 I/O) + whisper.json/tokens/mel filters
