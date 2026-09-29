@@ -1,0 +1,103 @@
+# Kavach user-facing strings (act/overlay.py), English + Hindi.
+#
+# reasons: one entry per reason id the fusion engine can emit (fusion.risk.reason_id_catalog();
+# tests/test_overlay.py checks every id has en + hi). "remote_tool:*" covers every known tool;
+# {tool} is the tool's display name from config processes.known_tools.
+#   overlay: false  -> never listed on the full-screen alert (still usable by the caution toast)
+# Reasons describe WHAT Kavach noticed in plain words; they never quote screen text or the call.
+#
+# priority: order in which reasons are picked for the alert (2-4 shown) and the toast (first one).
+
+ui:
+  headline:        {en: "Stop! This may be a scam", hi: "रुकिए! यह धोखाधड़ी हो सकती है"}
+  advice:          {en: "Hang up. Call your bank on the number printed on your card. Report fraud: 1930 / cybercrime.gov.in",
+                    hi: "फ़ोन काट दीजिए। अपने कार्ड पर छपे नंबर पर बैंक को कॉल करें। धोखाधड़ी की शिकायत: 1930 / cybercrime.gov.in"}
+  btn_help:        {en: "Stop and get help", hi: "रुकें और मदद लें"}
+  btn_safe:        {en: "I'm safe, continue", hi: "मैं सुरक्षित हूँ, जारी रखें"}
+  mouse_hint:      {en: "Click with the mouse to choose", hi: "चुनने के लिए माउस से क्लिक करें"}
+  help_title:      {en: "You did the right thing", hi: "आपने सही किया"}
+  paused:          {en: "{tool} has been paused. The other person cannot control your computer now.",
+                    hi: "{tool} रोक दिया गया है। अब दूसरा व्यक्ति आपका कंप्यूटर नहीं चला सकता।"}
+  could_not_pause: {en: "Could not pause {tool} — please close it yourself.",
+                    hi: "{tool} को रोका नहीं जा सका — कृपया इसे खुद बंद करें।"}
+  no_remote:       {en: "No remote-access app is running.", hi: "कोई रिमोट-एक्सेस ऐप नहीं चल रहा है।"}
+  helpline:        {en: "Call 1930 (National Cyber Crime Helpline) or report at cybercrime.gov.in",
+                    hi: "1930 (राष्ट्रीय साइबर अपराध हेल्पलाइन) पर कॉल करें या cybercrime.gov.in पर शिकायत करें"}
+  btn_resume:      {en: "Resume remote app", hi: "रिमोट ऐप फिर से चालू करें"}
+  btn_close:       {en: "Close", hi: "बंद करें"}
+  toast_title:     {en: "Kavach: be careful", hi: "कवच: सावधान रहें"}
+  injected_click:  {en: "This click came from the remote connection. Please use your own mouse.",
+                    hi: "यह क्लिक रिमोट कनेक्शन से आया है। कृपया अपने माउस का इस्तेमाल करें।"}
+
+reasons:
+  "remote_tool:*":
+    en: "{tool} can see and control your computer right now"
+    hi: "{tool} अभी आपका कंप्यूटर देख और चला सकता है"
+  "call:authority":
+    en: "The caller claims to be from police/CBI/RBI"
+    hi: "कॉल करने वाला खुद को पुलिस/CBI/RBI बता रहा है"
+  "call:threat":
+    en: "The caller threatens you with arrest or legal action"
+    hi: "कॉल करने वाला गिरफ़्तारी या कानूनी कार्रवाई की धमकी दे रहा है"
+  "call:secrecy":
+    en: "The caller tells you not to tell anyone"
+    hi: "कॉल करने वाला कह रहा है कि किसी को न बताएँ"
+  "call:urgency":
+    en: "The caller is rushing you to act right now"
+    hi: "कॉल करने वाला आप पर अभी तुरंत कुछ करने का दबाव डाल रहा है"
+  "call:money_move":
+    en: "The caller asks you to move money or share an OTP"
+    hi: "कॉल करने वाला पैसे भेजने या OTP बताने को कह रहा है"
+  "screen:fake_alert":
+    en: "The screen shows a fake virus or security warning"
+    hi: "स्क्रीन पर नकली वायरस या सुरक्षा चेतावनी दिख रही है"
+  "screen_tactic:authority":
+    en: "The page claims to be from police, a bank or the government"
+    hi: "यह पेज खुद को पुलिस, बैंक या सरकार का बता रहा है"
+  "screen_tactic:threat":
+    en: "The page threatens arrest, a fine or a blocked account"
+    hi: "यह पेज गिरफ़्तारी, जुर्माने या खाता बंद होने की धमकी दे रहा है"
+  "screen_tactic:secrecy":
+    en: "The page tells you to keep this secret"
+    hi: "यह पेज आपसे यह बात छिपाकर रखने को कह रहा है"
+  "screen_tactic:urgency":
+    en: "The page pressures you to act immediately"
+    hi: "यह पेज आप पर तुरंत कुछ करने का दबाव डाल रहा है"
+  "screen_tactic:money_move":
+    en: "The page asks you to pay or move money"
+    hi: "यह पेज आपसे पैसे भेजने या चुकाने को कह रहा है"
+  "screen:otp_card":
+    en: "The screen is asking for an OTP or card details"
+    hi: "स्क्रीन OTP या कार्ड की जानकारी माँग रही है"
+  "screen:bank":
+    en: "A banking page is open"
+    hi: "बैंकिंग पेज खुला है"
+  "screen:upi_payment":
+    en: "A payment / UPI page is open"
+    hi: "भुगतान / UPI पेज खुला है"
+  "combo":
+    en: "Remote access, a money page and scam talk are happening together"
+    hi: "रिमोट एक्सेस, पैसे वाला पेज और धोखाधड़ी वाली बातें एक साथ हो रही हैं"
+  "gate:no_tactic":
+    en: "Someone has remote access while a banking page is open"
+    hi: "बैंकिंग पेज खुला है और कोई आपका कंप्यूटर दूर से चला रहा है"
+    overlay: false
+
+priority:
+  - "remote_tool:*"
+  - "call:authority"
+  - "call:money_move"
+  - "call:threat"
+  - "screen:fake_alert"
+  - "call:secrecy"
+  - "call:urgency"
+  - "screen_tactic:money_move"
+  - "screen_tactic:threat"
+  - "screen_tactic:authority"
+  - "screen_tactic:secrecy"
+  - "screen_tactic:urgency"
+  - "screen:otp_card"
+  - "screen:bank"
+  - "screen:upi_payment"
+  - "combo"
+  - "gate:no_tactic"

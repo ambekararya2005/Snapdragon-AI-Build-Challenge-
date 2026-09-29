@@ -109,7 +109,7 @@ def record(scenario: str, expect: str, sim: Sim, ok: bool) -> None:
     alerts = sim.alerts
     TRUTH_TABLE.append({
         "scenario": scenario, "expect": expect, "final": sim.state.score, "max": sim.max, "band": sim.state.band,
-        "alerts": len(alerts), "trig_s": f"{alerts[0].t_trigger - T0:.1f}" if alerts else "-", "t2a_ms": f"{alerts[0].time_to_alert_ms:.0f}" if alerts else "-", "ok": ok,
+        "alerts": len(alerts), "trig_s": f"{alerts[0].t_trigger - T0:.1f}" if alerts else "-", "dec_ms": f"{alerts[0].decision_ms:.0f}" if alerts else "-", "ok": ok,
         "reasons": ", ".join(sim.state.reason_ids) or "-",
     })
 
@@ -135,7 +135,7 @@ def test_hero_scam_call():
     # remote + bank + otp = 75 is gated to 69 (caution); the first call tactic opens the gate -> alert.
     # t_trigger = when that tactic was said, so time-to-alert = ASR lag, not time since the bank screen.
     assert sim.alerts[0].t_trigger == pytest.approx(sim.first_tactic_ts)
-    assert sim.alerts[0].time_to_alert_ms == pytest.approx(ASR_LAG * 1000)
+    assert sim.alerts[0].decision_ms == pytest.approx(ASR_LAG * 1000)
     assert "gate:no_tactic" not in st.reason_ids
     assert ok
 
@@ -180,7 +180,7 @@ def test_it_helper_then_one_call_tactic_alerts():
     assert st.score == 100 and st.band == ALERT and "combo" in st.reason_ids
     assert len(sim.alerts) == 1
     assert sim.alerts[0].t_trigger == pytest.approx(T0 + 70 - ASR_LAG) == pytest.approx(sim.first_tactic_ts)
-    assert sim.alerts[0].time_to_alert_ms == pytest.approx(ASR_LAG * 1000)
+    assert sim.alerts[0].decision_ms == pytest.approx(ASR_LAG * 1000)
     assert ok
 
 
@@ -234,7 +234,7 @@ def test_tech_support_scam():
     assert "screen:fake_alert" in sim.state.reason_ids and "remote_tool:quick_assist" in sim.state.reason_ids
     assert len(tactics) >= 2
     assert sim.state.score >= 80 and sim.state.band == ALERT and len(sim.alerts) == 1
-    assert sim.alerts[0].time_to_alert_ms == pytest.approx(1200)
+    assert sim.alerts[0].decision_ms == pytest.approx(1200)
     assert ok
 
 
@@ -374,6 +374,10 @@ def test_incident_log_has_ids_and_numbers_only(tmp_path):
     sim = Sim(log)
     sim.at(0, remote()).at(5, screen("bank_transfer"), lag=0.5)
     sim.call("hero_call", 8, 60)
+    # the overlay reports it was on screen 0.3 s after the engine decided
+    first = sim.alerts[0]
+    log.write(sim.engine.overlay_shown(first.incident, first.ts + 0.3))
+    assert sim.engine.overlay_shown(first.incident, first.ts + 5) is None      # once per incident
     sim.override(62)
     sim.at(100, screen("fake_virus_alert"))
     sim2 = Sim(log)
@@ -384,13 +388,16 @@ def test_incident_log_has_ids_and_numbers_only(tmp_path):
     lines = log.path.read_text(encoding="utf-8").splitlines()
     records = [json.loads(l) for l in lines]
     kinds = [r["kind"] for r in records]
-    assert kinds.count("alert") == 3 and "override" in kinds and "caution" in kinds
-    base = {"time", "ts", "kind", "incident", "score", "band", "reason_ids", "time_to_alert_ms"}
+    assert kinds.count("alert") == 3 and kinds.count("overlay_shown") == 1 and "override" in kinds and "caution" in kinds
+    base = {"time", "ts", "kind", "incident", "score", "band", "reason_ids"}
+    extra = {"alert": {"decision_ms", "new_types"}, "overlay_shown": {"time_to_alert_ms"},
+             "override": {"override_until", "types"}, "caution": set()}
     for r in records:
-        assert base <= set(r) <= base | {"new_types", "override_until", "types"}
+        assert base <= set(r) <= base | extra[r["kind"]]
         assert all(REASON_ID.match(i) for i in r["reason_ids"])
-        assert (r["time_to_alert_ms"] is not None) == (r["kind"] == "alert")
-    assert records[kinds.index("alert")]["time_to_alert_ms"] == pytest.approx(ASR_LAG * 1000)   # hero: first call tactic
+    assert records[kinds.index("alert")]["decision_ms"] == pytest.approx(ASR_LAG * 1000)   # hero: first call tactic
+    # time_to_alert = overlay shown - t_trigger = ASR lag + decision -> overlay
+    assert records[kinds.index("overlay_shown")]["time_to_alert_ms"] == pytest.approx(ASR_LAG * 1000 + 300)
 
     # No fixture text leaks: no 3-word phrase, no 6+ digit run (OTP, account, phone) from any input.
     logged = log.path.read_text(encoding="utf-8").lower()

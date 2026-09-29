@@ -40,8 +40,12 @@ def test_fusion_thread_publishes_states_alerts_and_override(tmp_path):
         pipe.post("screen", _label(bank=0.9, otp_card=0.7, tactics={"threat"}), t - 0.3)
         assert _wait(lambda: any(e.kind == "alert" for e in events))
         alert = next(e for e in events if e.kind == "alert")
-        assert alert.score == 100 and alert.time_to_alert_ms >= 300
+        assert alert.score == 100 and alert.decision_ms >= 300
         assert pipe.state.band == "alert"
+        pipe.alert_shown(alert.incident, alert.ts + 0.2)          # the overlay is on screen
+        assert _wait(lambda: any(e.kind == "overlay_shown" for e in events))
+        shown = next(e for e in events if e.kind == "overlay_shown")
+        assert abs(shown.time_to_alert_ms - (alert.decision_ms + 200)) < 1       # shown - t_trigger
         pipe.override()
         assert _wait(lambda: any(e.kind == "override" for e in events))
         assert _wait(lambda: pipe.state.override_active)
@@ -52,7 +56,7 @@ def test_fusion_thread_publishes_states_alerts_and_override(tmp_path):
         pipe.stop()
     assert not pipe.health()["fusion"]["alive"]
     kinds = [json.loads(l)["kind"] for l in log.path.read_text(encoding="utf-8").splitlines()]
-    assert kinds == ["alert", "override"]
+    assert kinds == ["alert", "overlay_shown", "override"]
     assert [e.kind for e in events].count("alert") == 1
 
 
@@ -74,3 +78,20 @@ def test_status_line_has_ids_only():
                                  contributions=[{"signal": "screen:bank", "points": 25}, {"signal": "screen:otp_card", "points": 20}])
     line = status_line(pipe_state, "[chrome.exe] <title hidden>")
     assert "score  45  quiet" in line and "screen:bank(25)" in line and line.endswith("<title hidden>")
+
+
+def test_report_event_reaches_incident_log(tmp_path):
+    from fusion.incidents import UiEvent
+
+    log = IncidentLog(tmp_path / "incidents.jsonl")
+    pipe = Pipeline(CFG, screen=False, audio=False, processes=False, incident_log=log)
+    seen = []
+    pipe.subscribe(on_event=seen.append)
+    pipe.start()
+    try:
+        pipe.report_event(UiEvent(time.time(), "overlay:injected_click_blocked", 2, "safe"))
+        assert _wait(lambda: seen)
+    finally:
+        pipe.stop()
+    rec = json.loads(log.path.read_text(encoding="utf-8").splitlines()[0])
+    assert rec["kind"] == "overlay:injected_click_blocked" and rec["button"] == "safe" and rec["incident"] == 2

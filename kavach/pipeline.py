@@ -48,6 +48,17 @@ _OVERRIDE = object()
 
 
 @dataclass(frozen=True)
+class _Shown:
+    incident: int
+    ts: float
+
+
+@dataclass(frozen=True)
+class _Report:
+    event: Any
+
+
+@dataclass(frozen=True)
 class SignalEvent:
     stage: str
     ts: float                          # when the signal was observed (capture time)
@@ -119,7 +130,8 @@ class Pipeline:
 
     def subscribe(self, on_state: Callable[[RiskState], None] | None = None,
                   on_event: Callable[[Any], None] | None = None) -> None:
-        """on_state: every RiskState (each event + every tick_s). on_event: AlertEvent / CautionEvent / OverrideEvent."""
+        """on_state: every RiskState (each event + every tick_s).
+        on_event: AlertEvent / CautionEvent / OverrideEvent / OverlayShownEvent."""
         with self._sub_lock:
             if on_state:
                 self._state_subs.append(on_state)
@@ -138,6 +150,16 @@ class Pipeline:
     def override(self) -> None:
         """"I'm safe, continue" from the UI (applied on the fusion thread)."""
         self._q.put(_OVERRIDE)
+
+    def alert_shown(self, incident: int, shown_ts: float | None = None) -> None:
+        """The overlay is on screen: the engine turns it into an OverlayShownEvent
+        (time_to_alert_ms = shown - t_trigger), published and written to the incident log."""
+        self._q.put(_Shown(incident, self.clock() if shown_ts is None else shown_ts))
+
+    def report_event(self, event: Any) -> None:
+        """Derived UI event from the overlay (fusion.incidents.UiEvent): published to event subscribers
+        and the incident log on the fusion thread."""
+        self._q.put(_Report(event))
 
     @property
     def state(self) -> RiskState | None:
@@ -361,6 +383,13 @@ class Pipeline:
                 events: list[Any] = []
                 if item is _OVERRIDE:
                     events.append(self.engine.user_override(now))
+                elif isinstance(item, _Shown):
+                    shown = self.engine.overlay_shown(item.incident, item.ts)
+                    self._publish_events([shown] if shown is not None else [])
+                    item = None                                  # not a signal: no re-score
+                elif isinstance(item, _Report):
+                    self._publish_events([item.event])
+                    item = None
                 elif item is not None:
                     self.engine.update(item.payload, now, item.ts)
                 tick = time.monotonic() >= next_tick
@@ -376,8 +405,18 @@ class Pipeline:
                 log.exception("fusion step failed")
 
     def _publish(self, state: RiskState, events: list[Any]) -> None:
+        self._publish_events(events)
         with self._sub_lock:
-            state_subs, event_subs = list(self._state_subs), list(self._event_subs)
+            state_subs = list(self._state_subs)
+        for cb in state_subs:
+            try:
+                cb(state)
+            except Exception:
+                log.exception("state subscriber failed")
+
+    def _publish_events(self, events: list[Any]) -> None:
+        with self._sub_lock:
+            event_subs = list(self._event_subs)
         for ev in events:
             if self.incident_log is not None:
                 try:
@@ -389,11 +428,6 @@ class Pipeline:
                     cb(ev)
                 except Exception:
                     log.exception("event subscriber failed")
-        for cb in state_subs:
-            try:
-                cb(state)
-            except Exception:
-                log.exception("state subscriber failed")
 
 
 # ---------------------------------------------------------------- headless CLI
@@ -436,7 +470,7 @@ def _main(argv: list[str] | None = None) -> int:
         if ev.kind == "alert":
             alerts.append(ev)
             print(f"{time.strftime('%H:%M:%S')}  >> ALERT #{ev.incident} score {ev.score}, trigger -> decision "
-                  f"{ev.time_to_alert_ms:.0f} ms: {', '.join(ev.reason_ids)}", flush=True)
+                  f"{ev.decision_ms:.0f} ms: {', '.join(ev.reason_ids)}", flush=True)
         elif ev.kind == "caution":
             print(f"{time.strftime('%H:%M:%S')}  >> caution score {ev.score}: {', '.join(ev.reason_ids)}", flush=True)
 
@@ -470,7 +504,7 @@ def _main(argv: list[str] | None = None) -> int:
         print()
     print("--- summary ---")
     print(f"max score {max_score}, seconds per band {bands}, alerts {len(alerts)}"
-          + (f" (first trigger -> decision {alerts[0].time_to_alert_ms:.0f} ms)" if alerts else ""))
+          + (f" (first trigger -> decision {alerts[0].decision_ms:.0f} ms)" if alerts else ""))
     for name, st in pipe.health().items():
         if not st["enabled"]:
             print(f"  {name:<9} disabled")

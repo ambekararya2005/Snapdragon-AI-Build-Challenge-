@@ -116,7 +116,24 @@ class AlertEvent:
     kind: str = "alert"
 
     @property
+    def decision_ms(self) -> float:
+        """Trigger -> engine decision. The user-facing time_to_alert_ms is on OverlayShownEvent."""
+        return round(max(0.0, self.ts - self.t_trigger) * 1000.0, 1)
+
+
+@dataclass(frozen=True)
+class OverlayShownEvent:
+    """The overlay reports when the alert window was actually on screen (RiskEngine.overlay_shown)."""
+    incident: int
+    ts: float                          # overlay shown
+    t_trigger: float
+    score: int
+    reason_ids: tuple[str, ...]
+    kind: str = "overlay_shown"
+
+    @property
     def time_to_alert_ms(self) -> float:
+        """Trigger (first scam signal observed) -> warning on screen."""
         return round(max(0.0, self.ts - self.t_trigger) * 1000.0, 1)
 
 
@@ -188,6 +205,7 @@ class RiskEngine:
         self._last_caution: float | None = None
         self._override_until: float | None = None
         self._override_types: frozenset[str] = frozenset()
+        self._alerts: dict[int, AlertEvent] = {}             # incident -> its AlertEvent (for overlay_shown)
 
     # -- input
 
@@ -334,8 +352,21 @@ class RiskEngine:
                 and (self._last_caution is None or now - self._last_caution >= self.caution_cooldown_s)):
             self._last_caution = now
             events.append(CautionEvent(now, score, tuple(reason_ids)))
+        for ev in events:
+            if isinstance(ev, AlertEvent):
+                self._alerts[ev.incident] = ev
+                for old in [i for i in self._alerts if i < ev.incident - 20]:
+                    del self._alerts[old]
         self._band = band
         return RiskState(now, score, band, contributions, reason_ids, self._in_alert, self._incident, override, events)
+
+    def overlay_shown(self, incident: int, shown_ts: float) -> OverlayShownEvent | None:
+        """Overlay on screen for an incident -> event with time_to_alert_ms = shown - t_trigger.
+        Once per incident; None for unknown / already reported incidents."""
+        alert = self._alerts.pop(incident, None)
+        if alert is None:
+            return None
+        return OverlayShownEvent(incident, float(shown_ts), alert.t_trigger, alert.score, alert.reason_ids)
 
     def user_override(self, now: float) -> OverrideEvent:
         """"I'm safe, continue": no new alerts for override_minutes unless a new signal type appears."""
@@ -383,7 +414,7 @@ def _main() -> int:
             i += 1
         st = engine.score(t)
         for ev in st.events:
-            extra = f" time_to_alert {ev.time_to_alert_ms:.0f} ms" if isinstance(ev, AlertEvent) else ""
+            extra = f" time_to_alert {ev.decision_ms:.0f} ms" if isinstance(ev, AlertEvent) else ""
             print(f"t={t:5.1f}  >> {ev.kind.upper()} score {ev.score}{extra}")
         if t % 10 == 0:
             print(f"t={t:5.1f}  {format_state(st)}")
