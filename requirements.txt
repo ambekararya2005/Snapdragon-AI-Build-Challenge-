@@ -24,6 +24,7 @@ rapidocr_onnxruntime==1.4.4
 PyAudioWPatch==0.2.12.8   # WASAPI loopback capture (capture/audio.py), Windows only
 soxr==1.1.0               # audio resampling (native rate -> 16 kHz)
 rapidfuzz==3.14.6         # fuzzy tactic phrases in ASR transcripts (detect/tactic_lexicon.py)
+rich==15.0.0              # live status panel in scripts/signals_console.py (dev console only)
 
 # Dev-time only: Qualcomm AI Hub client for bench/aihub_profile.py (never imported at runtime).
 # It pins protobuf<7 (installs protobuf 6.31.1); onnx 1.18.0 works with that.

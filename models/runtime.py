@@ -125,6 +125,20 @@ class LatencyStats:
         }
 
 
+# DirectML: Run() on two DML sessions from two threads at the same time segfaults
+# (onnxruntime-directml 1.24.4, dev PC; OCR and ASR threads in scripts/signals_console.py).
+# All DML runs in the process are serialized; latency is measured after the lock is acquired.
+_DML_RUN_LOCK = threading.Lock()
+
+
+class _NoLock:
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(self, *exc: Any) -> None:
+        return None
+
+
 class KavachSession:
     """Wraps an onnxruntime.InferenceSession and records per-run latency."""
 
@@ -135,15 +149,22 @@ class KavachSession:
         self.actual_provider = session.get_providers()[0]
         self.log_latency = log_latency
         self.latency = LatencyStats()
+        self._run_lock = _DML_RUN_LOCK if self.actual_provider == PROVIDER_NAMES["dml"] else _NoLock()
 
     def run(self, feeds: Mapping[str, np.ndarray], output_names: Sequence[str] | None = None) -> list[np.ndarray]:
-        t0 = time.perf_counter()
-        outputs = self.session.run(list(output_names) if output_names else None, dict(feeds))
-        ms = (time.perf_counter() - t0) * 1000.0
+        with self._run_lock:
+            t0 = time.perf_counter()
+            outputs = self.session.run(list(output_names) if output_names else None, dict(feeds))
+            ms = (time.perf_counter() - t0) * 1000.0
         self.latency.record(ms)
         if self.log_latency:
             log.debug("%s: run %.2f ms on %s", self.name, ms, self.actual_provider)
         return outputs
+
+    def as_ort_session(self) -> "OrtSessionProxy":
+        """InferenceSession look-alike for third-party code (rapidocr): run() goes through this wrapper,
+        so the DML lock and latency stats apply."""
+        return OrtSessionProxy(self)
 
     def input_specs(self) -> list[dict[str, Any]]:
         return [{"name": i.name, "shape": list(i.shape), "dtype": i.type} for i in self.session.get_inputs()]
@@ -181,6 +202,19 @@ class KavachSession:
             "actual_provider": self.actual_provider,
             **self.latency.summary(),
         }
+
+
+class OrtSessionProxy:
+    """Duck-typed onnxruntime.InferenceSession backed by a KavachSession."""
+
+    def __init__(self, ks: KavachSession):
+        self._ks = ks
+
+    def run(self, output_names: Sequence[str] | None, input_feed: Mapping[str, np.ndarray], run_options: Any = None):
+        return self._ks.run(input_feed, output_names)
+
+    def __getattr__(self, name: str) -> Any:              # get_inputs, get_outputs, get_providers, ...
+        return getattr(self._ks.session, name)
 
 
 _registry: dict[str, KavachSession] = {}

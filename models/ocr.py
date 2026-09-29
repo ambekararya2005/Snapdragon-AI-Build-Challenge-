@@ -118,11 +118,14 @@ def _resolve(path: str | None) -> Path | None:
 
 
 class RapidOcrBackend:
-    """rapidocr_onnxruntime 1.4.x. It builds its own InferenceSessions (allowed exception, see CLAUDE.md).
+    """rapidocr_onnxruntime 1.4.x pre/post-processing with its det/rec/cls sessions from models.runtime.
 
-    Provider: rapidocr only knows use_dml / use_cuda flags per stage. We map runtime.provider onto
-    them, then read the providers its sessions actually got. QNN is not supported by rapidocr, so
-    it runs on CPU (the native backend is the NPU path).
+    Provider: rapidocr's own use_dml flag passes no device_id, so DirectML always landed on adapter 0
+    (the Radeon iGPU on the dev PC). When weights/ocr/{det,rec,cls}.onnx exist, rapidocr is built on
+    CPU and each stage's session is replaced by runtime.create_session (provider + dml.device_id from
+    config). Without those files it falls back to rapidocr's own flags (allowed exception, see
+    CLAUDE.md). QNN is not supported for these dynamic-shape models, so it runs on CPU (the native
+    backend is the NPU path).
     """
 
     name = "rapidocr"
@@ -144,8 +147,11 @@ class RapidOcrBackend:
         self.model_source = "weights/ocr" if all(self._model_paths.values()) else "rapidocr package"
 
         flags = self._provider_flags(self.requested_key)
+        via_runtime = bool(flags) and self.model_source == "weights/ocr"
         try:
-            self.engine = self._build(flags)
+            self.engine = self._build({} if via_runtime else flags)
+            if via_runtime:
+                self._use_runtime_sessions(rt)
             if flags:
                 self._smoke_test()          # DML/CUDA can fail at first run, not at session creation
         except Exception as e:
@@ -199,10 +205,20 @@ class RapidOcrBackend:
         cv2.putText(img, "Kavach 123", (8, 44), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2)
         self.engine(img, use_cls=self.use_cls)
 
+    _STAGES = {"det": ("text_det", "infer"), "rec": ("text_rec", "session"), "cls": ("text_cls", "infer")}
+
+    def _use_runtime_sessions(self, rt: Mapping[str, Any]) -> None:
+        """Swap each stage's onnxruntime session for one from models.runtime (honours dml.device_id)."""
+        for stage, (a, b) in self._STAGES.items():
+            if stage == "cls" and not self.use_cls:
+                continue
+            path = self._model_paths[f"{stage}_model_path"]
+            wrapper = getattr(getattr(self.engine, a), b)          # rapidocr OrtInferSession
+            wrapper.session = runtime.create_session(path, f"ocr.rapidocr_{stage}", runtime_cfg=rt).as_ort_session()
+
     def _session_providers(self) -> dict[str, str]:
         found: dict[str, str] = {}
-        stages = {"det": ("text_det", "infer"), "rec": ("text_rec", "session"), "cls": ("text_cls", "infer")}
-        for stage, (a, b) in stages.items():
+        for stage, (a, b) in self._STAGES.items():
             try:
                 sess = getattr(getattr(self.engine, a), b).session
                 found[stage] = sess.get_providers()[0]

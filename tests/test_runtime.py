@@ -111,3 +111,42 @@ def test_external_stats_in_registry():
     runtime.unregister_external_stats("ext")
     runtime.unregister_external_stats("broken")
     assert runtime.all_stats() == []
+
+
+def test_dml_sessions_share_one_run_lock():
+    class Fake:
+        def __init__(self, prov):
+            self.prov = prov
+
+        def get_providers(self):
+            return [self.prov, "CPUExecutionProvider"]
+
+        def run(self, names, feeds):
+            return [feeds["x"]]
+
+    a = runtime.KavachSession(Fake("DmlExecutionProvider"), "a", "DmlExecutionProvider")
+    b = runtime.KavachSession(Fake("DmlExecutionProvider"), "b", "DmlExecutionProvider")
+    c = runtime.KavachSession(Fake("CPUExecutionProvider"), "c", "CPUExecutionProvider")
+    assert a._run_lock is b._run_lock is runtime._DML_RUN_LOCK     # concurrent DML runs segfault: serialize
+    assert c._run_lock is not runtime._DML_RUN_LOCK
+    with runtime._DML_RUN_LOCK:                                      # a DML run waits for the lock ...
+        import threading
+        done = []
+        t = threading.Thread(target=lambda: done.append(a.run({"x": 1})))
+        t.start()
+        t.join(0.2)
+        assert not done
+        assert c.run({"x": 2}) == [2]                                # ... a CPU run does not
+    t.join(2)
+    assert done == [[1]]
+
+
+def test_ort_session_proxy_delegates(dummy_model):
+    ks = runtime.create_session(dummy_model, "proxy", "cpu", RT_CFG)
+    proxy = ks.as_ort_session()                        # what rapidocr gets instead of an InferenceSession
+    feeds = ks.dummy_feeds()
+    name = proxy.get_inputs()[0].name
+    out = proxy.run(None, {name: feeds[name]})
+    assert np.array_equal(out[0], ks.session.run(None, feeds)[0])
+    assert proxy.get_providers()[0] == "CPUExecutionProvider"
+    assert ks.stats()["n"] == 1                        # proxied runs are counted by the wrapper
