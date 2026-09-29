@@ -43,12 +43,14 @@ def test_fusion_values():
     assert (s.remote_tool.weight, s.remote_tool.decay_s, s.remote_tool.cap) == (30, None, 30)
     assert (s.money_screen.weight, s.money_screen.decay_s, s.money_screen.cap) == (25, 120, 25)
     assert (s.otp_card.weight, s.otp_card.decay_s, s.otp_card.cap) == (20, 120, 20)
-    assert (s.fake_alert.weight, s.fake_alert.decay_s, s.fake_alert.cap) == (15, 120, 30)
+    assert (s.screen_tactic.weight, s.screen_tactic.decay_s, s.screen_tactic.cap) == (15, 120, 30)
     assert (s.fake_alert_label.weight, s.fake_alert_label.decay_s, s.fake_alert_label.cap) == (20, 120, 20)
     assert (s.call_tactic.weight, s.call_tactic.decay_s, s.call_tactic.cap) == (10, 180, 40)
     assert (s.combo_bonus.weight, s.combo_bonus.cap) == (20, 20)
-    bands = load_config(env={}).fusion.bands
-    assert (bands.caution, bands.alert) == (50, 70)
+    f = load_config(env={}).fusion
+    assert (f.bands.caution, f.bands.alert) == (50, 70)
+    assert (f.fade_s, f.label_threshold, f.alert_clear_below, f.alert_clear_hold_s) == (20, 0.5, 60, 10)
+    assert (f.caution_cooldown_s, f.override_minutes) == (60, 10)
 
 
 def test_provider_env_override():

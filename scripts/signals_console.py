@@ -62,7 +62,7 @@ def preview_score(remote_live: bool, screen_label: Any, call_tactics: set[str] |
     if labels.get("fake_alert", 0) >= threshold:
         parts["fake_alert_label"] = min(w("fake_alert_label", 20), w("fake_alert_label", 20, "cap"))
     if screen_tactics:
-        parts["screen_tactics"] = min(w("fake_alert", 15) * len(screen_tactics), w("fake_alert", 30, "cap"))
+        parts["screen_tactics"] = min(w("screen_tactic", 15) * len(screen_tactics), w("screen_tactic", 30, "cap"))
     if call_tactics:
         parts["call_tactics"] = min(w("call_tactic", 10) * len(call_tactics), w("call_tactic", 40, "cap"))
     if remote_live and money and (screen_tactics or call_tactics):

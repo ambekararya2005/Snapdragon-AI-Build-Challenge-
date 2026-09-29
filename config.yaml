@@ -65,7 +65,7 @@ screen:
   max_side: 1920
 
 ocr:
-  backend: rapidocr        # rapidocr | native
+  backend: native          # rapidocr | native (native = models/ocr_native.py via models.runtime; the NPU path)
   min_confidence: 0.5
   det_model: weights/ocr/det.onnx      # scripts\fetch_ocr_models.py copies these out of rapidocr_onnxruntime
   rec_model: weights/ocr/rec.onnx
@@ -130,19 +130,28 @@ intent:                    # detect/intent.py (F5): scam tactics in the rolling 
   repeat_decay: 0.5        # 2nd, 3rd... entry of a tactic counts 0.5, 0.25... (many weak mentions stay weak)
   max_sentence_words: 30   # unpunctuated ASR text is cut into sentences of at most this many words
 
-fusion:
-  # weight = points per hit; decay_s = seconds a hit keeps counting (null = while active); cap = max points
+fusion:                    # fusion/risk.py (F6) + incident log (F11)
+  # weight = points per hit; decay_s = seconds a hit keeps full weight after it was last seen
+  # (null = while active), then it fades linearly to 0 over fade_s; cap = max points for the signal
   signals:
-    remote_tool:  {weight: 30, decay_s: null, cap: 30}   # counts while the tool is running
-    money_screen: {weight: 25, decay_s: 120,  cap: 25}
+    remote_tool:  {weight: 30, decay_s: null, cap: 30}   # counts while a tool is live (user process)
+    money_screen: {weight: 25, decay_s: 120,  cap: 25}   # screen label bank or upi_payment
     otp_card:     {weight: 20, decay_s: 120,  cap: 20}
-    fake_alert:   {weight: 15, decay_s: 120,  cap: 30}   # per tactic
-    fake_alert_label: {weight: 20, decay_s: 120, cap: 20}   # screen label fake_alert >= 0.5
-    call_tactic:  {weight: 10, decay_s: 180,  cap: 40}   # per tactic
-    combo_bonus:  {weight: 20, decay_s: null, cap: 20}
+    fake_alert_label: {weight: 20, decay_s: 120, cap: 20}   # screen label fake_alert
+    screen_tactic: {weight: 15, decay_s: 120, cap: 30}   # per tactic on screen
+    call_tactic:  {weight: 10, decay_s: 180,  cap: 40}   # per tactic in the call transcript
+    combo_bonus:  {weight: 20, decay_s: null, cap: 20}   # remote live + money screen + any tactic
+  fade_s: 20               # linear fade to 0 after decay_s
+  label_threshold: 0.5     # a screen label counts at or above this score
   bands:
     caution: 50
     alert: 70
+  alert_clear_below: 60    # hysteresis: leave alert only after the score stays below this ...
+  alert_clear_hold_s: 10   # ... for this many seconds
+  caution_cooldown_s: 60   # at most one caution toast per this many seconds
+  override_minutes: 10     # "I'm safe, continue": no new alerts unless a new signal type appears
+  tick_s: 0.5              # pipeline re-scores at least this often (decay) besides every event
+  incident_log: logs/incidents.jsonl   # alerts / cautions / overrides: scores + reason ids only
 
 logging:
   level: INFO

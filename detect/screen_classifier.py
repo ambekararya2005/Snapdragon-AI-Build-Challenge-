@@ -368,7 +368,7 @@ def fusion_preview(label: ScreenLabel, signals: Mapping | None = None, threshold
     """Preview of the screen's fusion points (the real fusion module adds decay, calls, combos):
     money_screen if bank or upi_payment >= threshold, + otp_card if >= threshold,
     + fake_alert_label if the fake_alert label >= threshold,
-    + fake_alert weight per screen tactic, capped. Weights from config fusion.signals."""
+    + screen_tactic weight per screen tactic, capped. Weights from config fusion.signals."""
     if signals is None:
         try:
             from kavach_config import get_config
@@ -384,7 +384,7 @@ def fusion_preview(label: ScreenLabel, signals: Mapping | None = None, threshold
         pts += w("otp_card", 20)
     if label.labels.get("fake_alert", 0) >= threshold:
         pts += min(w("fake_alert_label", 20), w("fake_alert_label", 20, "cap"))
-    pts += min(w("fake_alert", 15) * len(label.screen_tactics), w("fake_alert", 30, "cap"))
+    pts += min(w("screen_tactic", 15) * len(label.screen_tactics), w("screen_tactic", 30, "cap"))
     return pts
 
 
