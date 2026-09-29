@@ -1,0 +1,10 @@
+# Kavach demo script: fake electricity-bill disconnection call. FICTIONAL company, names and numbers.
+# Caller lines only, about 50 seconds. Lines starting with '#' are comments and are not spoken.
+Hello, this is the billing department of Demo Power Distribution, calling about consumer number zero zero zero one.
+Sir, your last month bill is not updated in our system.
+Your electricity will be disconnected tonight at nine thirty PM.
+This is your last warning. Our officer is already on the way to cut the connection.
+To avoid disconnection, pay the pending amount of twelve hundred fifty rupees immediately.
+Open the payment page I sent you, and scan and pay with any UPI app.
+Also install the support app I am sending, so our officer can update your bill quickly.
+Do it right now sir, otherwise there will be a reconnection penalty.

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO – NOT A REAL SHOP – DemoKart Checkout</title>
+<style>
+  :root { --brand: #232f3e; --accent: #f0a500; --bg: #f3f3f3; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .demo-banner { background: #b3261e; color: #fff; text-align: center; font-weight: 700; padding: 8px 16px; letter-spacing: .5px; }
+  header { background: var(--brand); color: #fff; padding: 14px 32px; font-size: 22px; font-weight: 700; }
+  main { max-width: 980px; margin: 18px auto; padding: 0 16px; display: grid; grid-template-columns: 1fr 280px; gap: 18px; }
+  .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 18px 26px; }
+  h2 { margin: 0 0 12px; font-size: 20px; }
+  .opt { border: 1px solid #d5d9d9; border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
+  .row { display: grid; grid-template-columns: 140px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+  input { font: inherit; padding: 7px 10px; border: 1px solid #b9c2cf; border-radius: 5px; width: 100%; }
+  .sum td { padding: 4px 0; } .sum td:last-child { text-align: right; }
+  button { font: inherit; font-weight: 700; padding: 11px 20px; border-radius: 20px; border: 0; background: var(--accent); width: 100%; margin-top: 12px; }
+  footer { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 13px; margin: 12px 0 24px; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL SHOP · Kavach test page · Fictional store, test card number</div>
+  <header>DemoKart · Checkout (2 items)</header>
+  <main>
+    <div class="card">
+      <h2>1 Delivery address</h2>
+      <p>Asha Kulkarni, 12 Demo Lane, Pune 411001 (fictional)</p>
+      <h2>2 Select a payment method</h2>
+      <div class="opt"><strong>Credit or debit card</strong>
+        <div class="row"><span>Card number</span><input value="4111 1111 1111 1111"></div>
+        <div class="row"><span>Name on card</span><input value="ASHA KULKARNI"></div>
+        <div class="row"><span>Expiry date</span><input placeholder="MM/YY"></div>
+        <div class="row"><span>CVV</span><input placeholder="CVV" maxlength="3"></div>
+      </div>
+      <div class="opt"><strong>Net Banking</strong> · Choose an option</div>
+      <div class="opt"><strong>Other UPI apps</strong> · Enter UPI ID, e.g. mobilenumber@demoupi</div>
+      <div class="opt"><strong>Cash on Delivery / Pay on Delivery</strong></div>
+    </div>
+    <div class="card">
+      <h2>Order Summary</h2>
+      <table class="sum" width="100%">
+        <tr><td>Items:</td><td>₹ 1,499.00</td></tr>
+        <tr><td>Delivery:</td><td>₹ 40.00</td></tr>
+        <tr><td><strong>Order Total:</strong></td><td><strong>₹ 1,539.00</strong></td></tr>
+      </table>
+      <button>Place your order</button>
+    </div>
+    <footer>DEMO – NOT A REAL SHOP. Static test page for the Kavach scam shield; 4111 1111 1111 1111 is a public test card number and nothing is sent anywhere.</footer>
+  </main>
+</body>
+</html>

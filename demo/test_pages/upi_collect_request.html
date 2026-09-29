@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO – NOT A REAL UPI APP – Collect request</title>
+<style>
+  :root { --brand: #5f259f; --bg: #f4f1f8; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; --warn: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .demo-banner { background: var(--warn); color: #fff; text-align: center; font-weight: 700; padding: 8px 16px; letter-spacing: .5px; }
+  header { background: var(--brand); color: #fff; padding: 14px 32px; font-size: 22px; font-weight: 700; }
+  main { max-width: 520px; margin: 22px auto; padding: 0 16px; }
+  .card { background: var(--card); border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 22px 28px; text-align: center; }
+  .amount { font-size: 40px; font-weight: 700; margin: 8px 0; }
+  .from { color: var(--muted); }
+  .note { background: #fff8e1; border: 1px solid #f0c36d; border-radius: 6px; padding: 8px 12px; margin: 14px 0; }
+  .pin { display: flex; gap: 10px; justify-content: center; margin: 12px 0; }
+  .pin span { width: 34px; height: 42px; border: 2px solid #b9a5d6; border-radius: 6px; }
+  .actions { display: flex; gap: 12px; justify-content: center; margin-top: 10px; }
+  button { font: inherit; font-weight: 700; padding: 10px 26px; border-radius: 6px; border: 1px solid var(--brand); }
+  .primary { background: var(--brand); color: #fff; } .secondary { background: #fff; color: var(--brand); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin: 24px 0; }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL UPI APP · Kavach test page imitating a UPI collect-request scam</div>
+  <header>DemoPay UPI</header>
+  <main>
+    <div class="card">
+      <p><strong>Collect request</strong></p>
+      <p class="from">From: Rohan S (rohan.buyer@demoupi)</p>
+      <div class="amount">₹ 15,000.00</div>
+      <p>Remarks: Advance for sofa, army payment</p>
+      <div class="note">Enter UPI PIN to receive money. Request expires in 10 minutes.</div>
+      <p>Enter UPI PIN</p>
+      <div class="pin"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="actions"><button class="secondary">Decline</button><button class="primary">Pay ₹ 15,000</button></div>
+    </div>
+    <footer>DEMO – NOT A REAL UPI APP. Static test page for the Kavach scam shield; names and UPI ids are fictional.</footer>
+  </main>
+</body>
+</html>

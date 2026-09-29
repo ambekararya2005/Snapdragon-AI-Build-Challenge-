@@ -1,0 +1,12 @@
+# Kavach demo script: "CBI digital arrest" hero call, Hinglish variant. FICTIONAL - every name, number and case id is invented.
+# Caller lines only, about 80 seconds, romanised Hindi mixed with English (spoken by the English SAPI voice).
+# Lines starting with '#' are comments and are not spoken.
+Hello, main CBI cyber cell se Inspector Vikram Rathore bol raha hoon. Aap Arun Mehra ji hain?
+Aapke naam pe ek FedEx parcel customs mein pakda gaya hai. Usme drugs aur fake passports hain.
+Aapka aadhaar misuse hua hai. Aapke upar case darj ho gaya hai, arrest warrant nikla hai.
+Abhi se aap digital arrest mein hain. Call mat kaatna, video call on rakhna.
+Yeh confidential investigation hai. Kisi ko mat batana, ghar walon ko bhi nahi.
+Aapke bank accounts aaj hi freeze ho jayenge. Yeh aakhri warning hai.
+Verification ke liye paisa RBI safe account mein transfer karna hoga. Paisa wapas mil jayega.
+AnyDesk install karo, hamare officer screen dekh ke guide karenge.
+Jo OTP aaya hai woh batao. Turant transfer karo, abhi ke abhi.

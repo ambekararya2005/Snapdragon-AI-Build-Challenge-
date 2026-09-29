@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO – NOT A REAL BANK – KYC Update – Online Verification</title>
+<style>
+  :root { --brand: #2b3a8c; --bg: #f2f3f8; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; --warn: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .demo-banner { background: var(--warn); color: #fff; text-align: center; font-weight: 700; padding: 8px 16px; letter-spacing: .5px; }
+  header { background: var(--brand); color: #fff; padding: 14px 32px; font-size: 22px; font-weight: 700; }
+  main { max-width: 720px; margin: 18px auto; padding: 0 16px; }
+  .urgent { background: #fdecea; border: 2px solid var(--warn); color: var(--warn); font-weight: 700; font-size: 20px; padding: 12px 16px; margin-bottom: 14px; }
+  .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 20px 32px; }
+  p { margin: 0 0 12px; }
+  .row { display: grid; grid-template-columns: 240px 1fr; gap: 12px; align-items: center; margin-bottom: 12px; }
+  label { font-weight: 600; }
+  input { font: inherit; padding: 9px 11px; border: 1px solid #b9c2cf; border-radius: 5px; width: 100%; }
+  button { font: inherit; font-weight: 700; padding: 11px 28px; border-radius: 5px; border: 0; background: var(--warn); color: #fff; margin-top: 8px; }
+  .small { color: var(--muted); font-size: 14px; margin-top: 16px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin: 24px 0; }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL BANK · Kavach test page imitating a fake-KYC scam · Do not enter real details</div>
+  <header>Demo Bank of Nowhere · KYC Portal</header>
+  <main>
+    <div class="urgent">URGENT: Your account will be blocked today</div>
+    <div class="card">
+      <p>Dear Customer, your KYC expired on 12/09/2026. As per RBI guidelines your account will be
+         suspended within 24 hours if KYC is not updated.</p>
+      <p><strong>Update your KYC immediately to avoid penalty.</strong></p>
+      <form onsubmit="return false">
+        <div class="row"><label for="cid">Customer ID / Username</label><input id="cid"></div>
+        <div class="row"><label for="mob">Registered Mobile Number</label><input id="mob" value="+91 98765 43210"></div>
+        <div class="row"><label for="pan">PAN Card Number</label><input id="pan"></div>
+        <div class="row"><label for="dob">Date of Birth (DD/MM/YYYY)</label><input id="dob"></div>
+        <div class="row"><label for="pin">ATM PIN</label><input id="pin" type="password"></div>
+        <button type="submit">Submit KYC</button>
+      </form>
+      <p class="small">Do not share this page with anyone. Keep this confidential.</p>
+    </div>
+    <footer>DEMO – NOT A REAL BANK. Static test page for the Kavach scam shield; every name and number is fictional and it sends nothing anywhere.</footer>
+  </main>
+</body>
+</html>

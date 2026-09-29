@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO MAIL – Team lunch on Friday – Inbox</title>
+<style>
+  :root { --brand: #3c4a5c; --bg: #f6f8fc; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; --sel: #e8eefb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .demo-banner { background: #b3261e; color: #fff; text-align: center; font-weight: 700; padding: 8px 16px; letter-spacing: .5px; }
+  header { background: var(--brand); color: #fff; padding: 12px 24px; font-size: 20px; font-weight: 700; }
+  .wrap { display: grid; grid-template-columns: 200px 340px 1fr; min-height: 70vh; }
+  nav { padding: 14px 18px; } nav div { padding: 6px 0; }
+  .list { border-right: 1px solid #dde3ea; background: var(--card); }
+  .item { padding: 10px 14px; border-bottom: 1px solid #eef1f5; font-size: 14px; }
+  .item.sel { background: var(--sel); }
+  .item b { display: block; }
+  .mail { background: var(--card); padding: 20px 30px; font-size: 16px; line-height: 1.5; }
+  .mail h1 { font-size: 22px; margin: 0 0 6px; }
+  .from { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin: 18px 0; }
+  @media (max-width: 800px) { .wrap { grid-template-columns: 1fr; } nav { display: none; } }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL MAILBOX · Kavach test page · Fictional people</div>
+  <header>DemoMail</header>
+  <div class="wrap">
+    <nav><div><b>Inbox 7</b></div><div>Starred</div><div>Sent</div><div>Drafts 2</div><div>Archive</div></nav>
+    <div class="list">
+      <div class="item sel"><b>Meera Iyer</b>Team lunch on Friday · 10:42 AM</div>
+      <div class="item"><b>Build bot</b>[kavach] nightly tests passed · 9:15 AM</div>
+      <div class="item"><b>Library</b>Your reserved book is ready for pickup · Yesterday</div>
+      <div class="item"><b>Cycling club</b>Sunday ride route and timings · Sep 26</div>
+      <div class="item"><b>Dad</b>Photos from the wedding · Sep 24</div>
+    </div>
+    <div class="mail">
+      <h1>Team lunch on Friday</h1>
+      <div class="from">Meera Iyer to the design team · 10:42 AM</div>
+      <p>Hi all,</p>
+      <p>To celebrate the launch, we are having a team lunch this Friday at 1 pm at the South Indian place
+         near the office. Please reply by Thursday evening if you can make it, and mention any food preferences.</p>
+      <p>We will also do a short demo of the new onboarding screens before we leave, about ten minutes.</p>
+      <p>See you there,<br>Meera</p>
+    </div>
+  </div>
+  <footer>DEMO – NOT A REAL MAILBOX. Static test page for the Kavach scam shield.</footer>
+</body>
+</html>

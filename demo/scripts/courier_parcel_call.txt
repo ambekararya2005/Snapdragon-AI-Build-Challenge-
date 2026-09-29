@@ -1,0 +1,11 @@
+# Kavach demo script: courier-parcel / fake police scam call. FICTIONAL - every name, company and number is invented.
+# Caller lines only (two callers), about 75 seconds. Lines starting with '#' are comments and are not spoken.
+Hello, this is a call from Demo Courier Services. A parcel booked in your name has been held at Mumbai customs.
+The package in your name contains five fake passports and illegal drugs.
+I am transferring your call to the Mumbai police cyber cell. Please hold.
+Hello, this is Sub Inspector Anil Kadam from the cyber crime branch. A case has been registered against you.
+You will be arrested unless you cooperate with the investigation.
+Install AnyDesk now, so our officer can verify your bank accounts and your Aadhaar details.
+This is a matter of national security. Don't tell anybody about this call.
+Stay on the video call, and do not disconnect the call until the verification is complete.
+If your money is clean, it will be returned after verification. You must act now.

@@ -1,0 +1,64 @@
+# Scenario set for bench/scenarios.py (TRD: 10 scam + 10 normal). Every page and call is a fictional DEMO asset.
+#
+# Fields:
+#   id        unique id (results rows, --only)
+#   type      scam | normal
+#   page      demo/test_pages/<file>, opened in its own browser window and brought to the front; null = none
+#             (the runner's neutral idle page stays in front)
+#   remote    none | fake | fake_idle | anydesk | anydesk_idle
+#               fake       a hidden waitfor.exe registered as a remote tool for the run (live user process)
+#               fake_idle  the same exe with the tool's idle argument (role "tray": installed, not live)
+#               anydesk*   the real AnyDesk.exe if installed (--anydesk PATH); otherwise the fake stands in
+#                          and the row says so
+#   call      demo/scripts/<file>, spoken with SAPI TTS through the speakers (WASAPI loopback); null = none
+#   duration_s  seconds from pipeline start to teardown (the call is cut off if still speaking)
+#   expected  alert | caution | quiet: the band the scenario should reach at most (normal) / at least (scam)
+#   desc      one line for the report
+# Optional: call_delay_s (default 3), seconds after setup before the first spoken line.
+#
+# Call-only scams cannot reach alert by design (no money screen or remote tool yet); they expect caution.
+
+scenarios:
+  # ------------------------------------------------------------------ scam (10)
+  - {id: digital_arrest, type: scam, page: mock_bank_transfer.html, remote: fake, call: hero_call.txt,
+     duration_s: 130, expected: alert, desc: "CBI digital arrest: remote tool + bank transfer + hero call"}
+  - {id: fake_kyc, type: scam, page: fake_kyc.html, remote: none, call: kyc_call.txt,
+     duration_s: 90, expected: alert, desc: "Fake KYC page + KYC call"}
+  - {id: tech_support_remote, type: scam, page: fake_defender_alert.html, remote: fake, call: tech_support_call.txt,
+     duration_s: 80, expected: alert, desc: "Fake virus alert + remote tool + tech-support call"}
+  - {id: fake_electricity, type: scam, page: fake_electricity_bill.html, remote: none, call: electricity_call.txt,
+     duration_s: 70, expected: alert, desc: "Fake electricity disconnection bill + call"}
+  - {id: safe_account, type: scam, page: mock_bank_transfer.html, remote: none, call: safe_account_call.txt,
+     duration_s: 85, expected: alert, desc: "RBI safe-account transfer call while on net banking"}
+  - {id: courier_parcel, type: scam, page: null, remote: fake, call: courier_parcel_call.txt,
+     duration_s: 85, expected: alert, desc: "Courier parcel / fake police call + remote tool"}
+  - {id: kyc_call_no_page, type: scam, page: null, remote: none, call: kyc_call.txt,
+     duration_s: 90, expected: caution, desc: "KYC scam call only, nothing on screen yet"}
+  - {id: tech_support_no_remote, type: scam, page: fake_defender_alert.html, remote: none, call: tech_support_call.txt,
+     duration_s: 80, expected: alert, desc: "Fake virus alert + tech-support call, no remote tool yet"}
+  - {id: upi_collect, type: scam, page: upi_collect_request.html, remote: none, call: upi_collect_call.txt,
+     duration_s: 70, expected: alert, desc: "UPI collect request ('enter PIN to receive') + buyer call"}
+  - {id: hero_hinglish, type: scam, page: mock_bank_transfer.html, remote: fake, call: hero_hinglish.txt,
+     duration_s: 95, expected: alert, desc: "Digital arrest, Hinglish call + remote tool + bank transfer"}
+
+  # ------------------------------------------------------------------ normal (10)
+  - {id: net_banking, type: normal, page: mock_bank_transfer.html, remote: none, call: null,
+     duration_s: 30, expected: quiet, desc: "Plain net-banking transfer"}
+  - {id: it_help_anydesk, type: normal, page: null, remote: anydesk, call: normal_it_call.txt,
+     duration_s: 90, expected: quiet, desc: "Genuine IT help desk session on AnyDesk"}
+  - {id: news_article, type: normal, page: news_article_scam.html, remote: none, call: null,
+     duration_s: 30, expected: quiet, desc: "Reading a news article about a digital-arrest scam"}
+  - {id: news_audio, type: normal, page: null, remote: none, call: news_clip.txt,
+     duration_s: 75, expected: quiet, desc: "TV news report about a scam playing"}
+  - {id: shopping_checkout, type: normal, page: shopping_checkout.html, remote: none, call: null,
+     duration_s: 30, expected: quiet, desc: "Online shopping checkout with card and UPI"}
+  - {id: family_call_banking, type: normal, page: mock_bank_transfer.html, remote: none, call: family_call.txt,
+     duration_s: 55, expected: quiet, desc: "Mother asks for fees while the user is on net banking"}
+  - {id: work_call, type: normal, page: null, remote: none, call: work_call.txt,
+     duration_s: 55, expected: quiet, desc: "Ordinary work call"}
+  - {id: email, type: normal, page: plain_email.html, remote: none, call: null,
+     duration_s: 30, expected: quiet, desc: "Reading a normal email"}
+  - {id: news_audio_bank, type: normal, page: mock_bank_transfer.html, remote: none, call: news_clip.txt,
+     duration_s: 75, expected: quiet, desc: "YouTube-style scam news audio while on net banking"}
+  - {id: anydesk_idle_bank, type: normal, page: mock_bank_transfer.html, remote: anydesk_idle, call: null,
+     duration_s: 30, expected: quiet, desc: "AnyDesk installed but idle, net banking open"}

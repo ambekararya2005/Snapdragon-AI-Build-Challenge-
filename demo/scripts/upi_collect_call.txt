@@ -1,0 +1,9 @@
+# Kavach demo script: UPI collect-request scam ("enter your PIN to receive money"). FICTIONAL names and ids.
+# Caller lines only, about 45 seconds. Lines starting with '#' are comments and are not spoken.
+Hello, I saw your sofa listing online. I am Captain Rohan from the army, posted in Pune.
+I will buy it at your price, fifteen thousand rupees. I am sending the advance right now.
+I have sent a collect request on your UPI. Just approve it and enter your UPI PIN to receive the money.
+Please do it quickly, I am going on duty in ten minutes.
+It is showing fifteen thousand? Yes, that is the amount you will receive. Enter the PIN immediately.
+Don't worry, this is the army payment system. The money will come to your account at once.
+If it fails, I will send another request. Just enter the PIN again.

@@ -1,0 +1,6 @@
+# Tuning proposal (bench/scenarios.py --compare): call tactics weigh 13 instead of 10, cap 65 instead of 40.
+# Why: a call-only scam with 4 distinct tactics (kyc_call_no_page) peaks at 40 and never reaches caution (50).
+# 4 x 13 = 52 -> caution; 5 x 13 = 65 stays below alert (70), so a call alone still cannot raise a full alert.
+fusion:
+  signals:
+    call_tactic: {weight: 13, decay_s: 180, cap: 65}

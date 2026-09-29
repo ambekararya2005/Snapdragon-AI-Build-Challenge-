@@ -1,0 +1,12 @@
+# Kavach demo script: fake bank KYC call. FICTIONAL - every name, bank and number is invented.
+# Caller lines only (the victim's side is silent), about 60 seconds. Lines starting with '#' are comments.
+Hello, am I speaking with Mrs. Sunita Rao? I am calling from the KYC department of Demo Bank of Nowhere.
+Madam, your KYC has expired, and as per RBI guidelines your account will be blocked today.
+Your debit card and net banking will stop working from tonight.
+To avoid this, we must update your KYC immediately on this call itself.
+I am sending a verification code to your registered mobile number. Please tell me the OTP you receive.
+Madam, this is a confidential process. Do not share this with anyone, not even your family.
+Please don't go to the branch. The system will block your account within 30 minutes.
+Also read me the last four digits of your ATM card and the expiry date.
+If you don't cooperate, there will be a penalty and legal action from the bank.
+Quickly madam, tell me the OTP right now, before the link expires.

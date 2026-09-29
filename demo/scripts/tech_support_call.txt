@@ -1,0 +1,11 @@
+# Kavach demo script: tech-support scam call after a fake virus pop-up. FICTIONAL names and numbers.
+# Caller lines only, about 60 seconds. Lines starting with '#' are comments and are not spoken.
+Hello, this is David from Microsoft Support, calling about the virus alert on your computer.
+Your computer has been hacked, and your bank details are being stolen right now.
+Do not shut down or restart your computer, or your data will be deleted.
+I am a certified technician. Please install AnyDesk so I can remove the virus.
+Now open AnyDesk and read me the nine digit code on the screen.
+There is a one time security fee of four thousand nine hundred ninety nine rupees for the cleanup.
+Keep your bank app ready. Open your net banking so I can check if the hackers took any money.
+Do not tell anyone about this call until the cleanup is complete. It is a security matter.
+You must do this immediately. Your protection expires today itself.

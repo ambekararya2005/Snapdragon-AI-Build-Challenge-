@@ -1,0 +1,8 @@
+# Kavach demo script: ordinary work call (no scam tactics). FICTIONAL names.
+# Colleague's lines only, about 40 seconds. Lines starting with '#' are comments and are not spoken.
+Hi, it's Neha from the project team. Do you have two minutes?
+The client moved the review meeting to tomorrow at eleven.
+Can you update the slides with the new sales numbers before tonight?
+Also, please send the invoice to the finance team. They need it for the month end closing.
+Rahul will share his screen in the meeting to walk through the demo.
+If anything is blocked, message me on Teams. Thanks, talk tomorrow.

@@ -106,7 +106,10 @@ def _latest_put(q: queue.Queue, item: Any) -> bool:
 class Pipeline:
     def __init__(self, config: Mapping[str, Any] | None = None, *, screen: bool = True, audio: bool = True,
                  processes: bool = True, incident_log: IncidentLog | bool = True,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time, ocr: Any = None, asr: Any = None):
+        """ocr / asr: already loaded backends (models.ocr.create_backend / models.asr.ASR) to use instead of
+        loading new ones, e.g. bench/scenarios.py restarting the pipeline per scenario. The caller owns
+        their state (clear asr.rolling between runs)."""
         if config is None:
             from kavach_config import get_config
             config = get_config()
@@ -140,7 +143,8 @@ class Pipeline:
         self.load_ms: dict[str, float] = {}                         # model load time per stage
         self.paused_until: float | None = None
         self._clear_rolling = False
-        self.monitor = self.sampler = self.audio = self.ocr = self.asr = None
+        self.monitor = self.sampler = self.audio = None
+        self.ocr, self.asr = ocr, asr
         self.started = False
 
     # -- public API
@@ -340,9 +344,10 @@ class Pipeline:
         from capture.screen import ScreenSampler
         from models.ocr import create_backend
 
-        t0 = time.perf_counter()
-        self.ocr = create_backend(self.cfg)
-        self.load_ms["ocr"] = (time.perf_counter() - t0) * 1000.0
+        if self.ocr is None:
+            t0 = time.perf_counter()
+            self.ocr = create_backend(self.cfg)
+            self.load_ms["ocr"] = (time.perf_counter() - t0) * 1000.0
         with self._hlock:
             self._health["ocr"].info = f"{self.ocr.name}:{self.ocr.provider}"
         self.sampler = ScreenSampler(self.cfg, on_frame=self._on_frame)
@@ -400,9 +405,10 @@ class Pipeline:
         from capture.audio import AudioCapture
         from models.asr import ASR
 
-        t0 = time.perf_counter()
-        self.asr = ASR(self.cfg)
-        self.load_ms["asr"] = (time.perf_counter() - t0) * 1000.0
+        if self.asr is None:
+            t0 = time.perf_counter()
+            self.asr = ASR(self.cfg)
+            self.load_ms["asr"] = (time.perf_counter() - t0) * 1000.0
         with self._hlock:
             self._health["asr"].info = f"{self.asr.backend_name}:{self.asr.provider}"
         self.audio = AudioCapture(self.cfg, self._on_chunk)

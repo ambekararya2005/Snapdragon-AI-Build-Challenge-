@@ -1,0 +1,10 @@
+# Kavach demo script: "RBI safe account" transfer scam call. FICTIONAL - every name, number and code is invented.
+# Caller lines only, about 70 seconds. Lines starting with '#' are comments and are not spoken.
+Good afternoon, I am calling from the Reserve Bank fraud monitoring cell. Is this Mr. Kiran Joshi?
+Sir, we have detected illegal transactions from your savings account, linked to a money laundering case.
+Your bank accounts will be frozen today itself, unless you verify your funds.
+To protect your savings, you must transfer your funds to an RBI safe account for verification.
+It is fully refundable. The money will be returned after verification within 24 hours.
+Open your net banking now and add the beneficiary I give you. The IFSC code is DEMO zero zero zero one two three four.
+This is a confidential investigation. Do not inform your bank manager, and don't tell your family.
+Enter the OTP and confirm the transfer. Do it right now, sir. Do not disconnect the call.

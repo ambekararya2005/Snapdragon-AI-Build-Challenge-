@@ -1,0 +1,21 @@
+id,type,expected,outcome,ok,max_score,final_score,final_band,alert,caution,trigger_s,alert_s,decision_ms,e2e_ms,stimulus,reasons,page,remote,call,duration_s,notes
+digital_arrest,scam,alert,alert,True,100,100,alert,True,True,13.497,14.216,718.9,2611.0,speech:authority,remote_tool:fakeremote screen:bank combo screen:otp_card call:authority,mock_bank_transfer.html,fake,hero_call.txt,130.0,"focus taken back from Antigravity IDE.exe x5, chrome.exe x1, explorer.exe x4"
+fake_kyc,scam,alert,alert,True,90,90,alert,True,True,33.046,33.691,644.1,2049.0,speech:urgency,screen:otp_card call:money_move call:secrecy call:threat call:urgency screen_tactic:authority,fake_kyc.html,none,kyc_call.txt,90.0,
+tech_support_remote,scam,alert,alert,True,100,100,alert,True,False,2.54,2.972,431.6,2054.0,page,remote_tool:fakeremote screen:fake_alert call:authority call:threat screen_tactic:authority screen_tactic:money_move,fake_defender_alert.html,fake,tech_support_call.txt,80.0,
+fake_electricity,scam,alert,alert,True,75,75,alert,True,True,29.053,29.574,521.4,2574.0,speech:urgency,screen:upi_payment screen_tactic:threat screen_tactic:urgency call:threat call:urgency,fake_electricity_bill.html,none,electricity_call.txt,70.0,"focus taken back from Antigravity IDE.exe x2, chrome.exe x2"
+safe_account,scam,alert,alert,True,85,85,alert,True,True,29.052,29.526,473.3,2250.0,speech:money_move,screen:bank screen:otp_card call:authority call:money_move call:threat call:urgency,mock_bank_transfer.html,none,safe_account_call.txt,85.0,"focus taken back from ShellHost.exe x9, explorer.exe x2"
+courier_parcel,scam,alert,alert,True,70,70,alert,True,True,69.05,69.639,589.4,658.0,speech:money_move,remote_tool:fakeremote call:authority call:money_move call:secrecy call:threat,,fake,courier_parcel_call.txt,85.0,
+kyc_call_no_page,scam,caution,quiet,False,40,40,quiet,False,False,,,,,,call:money_move call:secrecy call:threat call:urgency,,none,kyc_call.txt,90.0,
+tech_support_no_remote,scam,alert,alert,True,90,90,alert,True,True,17.074,17.68,605.7,4071.0,speech:threat,screen:fake_alert call:authority call:money_move call:threat call:urgency screen_tactic:authority,fake_defender_alert.html,none,tech_support_call.txt,80.0,
+upi_collect,scam,alert,quiet,False,35,35,quiet,False,False,,,,,,screen:upi_payment call:urgency,upi_collect_request.html,none,upi_collect_call.txt,70.0,focus taken back from Antigravity IDE.exe x15
+hero_hinglish,scam,alert,alert,True,100,100,alert,True,True,9.057,9.656,599.2,4283.0,speech:authority,remote_tool:fakeremote screen:bank combo screen:otp_card call:authority,mock_bank_transfer.html,fake,hero_hinglish.txt,95.0,
+net_banking,normal,quiet,quiet,True,45,45,quiet,False,False,,,,,,screen:bank screen:otp_card,mock_bank_transfer.html,none,,30.0,
+it_help_anydesk,normal,quiet,quiet,True,30,30,quiet,False,False,,,,,,remote_tool:fakeremote,,fake,normal_it_call.txt,90.0,AnyDesk not installed: fake tool stands in
+news_article,normal,quiet,quiet,True,0,0,quiet,False,False,,,,,,,news_article_scam.html,none,,30.0,focus taken back from Antigravity IDE.exe x1
+news_audio,normal,quiet,quiet,True,0,0,quiet,False,False,,,,,,,,none,news_clip.txt,75.0,
+shopping_checkout,normal,quiet,quiet,True,45,45,quiet,False,False,,,,,,screen:upi_payment screen:otp_card,shopping_checkout.html,none,,30.0,"focus taken back from WhatsApp.Root.exe x1, explorer.exe x1"
+family_call_banking,normal,quiet,quiet,True,45,45,quiet,False,False,,,,,,screen:bank screen:otp_card,mock_bank_transfer.html,none,family_call.txt,55.0,
+work_call,normal,quiet,quiet,True,0,0,quiet,False,False,,,,,,,,none,work_call.txt,55.0,
+email,normal,quiet,quiet,True,0,0,quiet,False,False,,,,,,,plain_email.html,none,,30.0,
+news_audio_bank,normal,quiet,caution,False,55,55,caution,False,True,,,,,,screen:bank screen:otp_card call:authority,mock_bank_transfer.html,none,news_clip.txt,75.0,
+anydesk_idle_bank,normal,quiet,quiet,True,45,45,quiet,False,False,,,,,,screen:bank screen:otp_card,mock_bank_transfer.html,fake_idle,,30.0,AnyDesk not installed: fake tool stands in

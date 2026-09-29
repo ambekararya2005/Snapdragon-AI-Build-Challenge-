@@ -1,0 +1,6 @@
+# Alternative checked and rejected (bench/scenarios.py --compare): caution band at 40 instead of 50.
+# Also lifts call-only scams (40 points) to caution, but every bank / checkout page (45 points) with nothing
+# suspicious would raise a caution too.
+fusion:
+  bands:
+    caution: 40

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEMO – NOT A REAL BILL – Electricity Bill Payment Pending</title>
+<style>
+  :root { --brand: #0b6e4f; --bg: #f1f5f3; --card: #ffffff; --text: #1b1f24; --muted: #5b6573; --warn: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .demo-banner { background: var(--warn); color: #fff; text-align: center; font-weight: 700; padding: 8px 16px; letter-spacing: .5px; }
+  header { background: var(--brand); color: #fff; padding: 14px 32px; font-size: 22px; font-weight: 700; }
+  main { max-width: 720px; margin: 18px auto; padding: 0 16px; }
+  .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 20px 32px; }
+  .alert { color: var(--warn); font-weight: 700; font-size: 20px; }
+  table { border-collapse: collapse; margin: 14px 0; }
+  td { padding: 6px 18px 6px 0; }
+  td:first-child { color: var(--muted); }
+  .pay { display: flex; gap: 24px; align-items: center; border-top: 1px solid #dde3ea; padding-top: 16px; margin-top: 8px; }
+  .qr { width: 120px; height: 120px; background: repeating-linear-gradient(45deg, #222 0 6px, #fff 6px 12px); }
+  button { font: inherit; font-weight: 700; padding: 11px 32px; border-radius: 5px; border: 0; background: var(--warn); color: #fff; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin: 24px 0; }
+</style>
+</head>
+<body>
+  <div class="demo-banner">DEMO – NOT A REAL BILL · Kavach test page imitating an electricity-bill scam · Fictional company</div>
+  <header>Demo Power Distribution Co. · Consumer Services</header>
+  <main>
+    <div class="card">
+      <p class="alert">Dear Consumer, your electricity will be disconnected tonight at 9:30 PM</p>
+      <p>because your previous month bill was not updated.</p>
+      <table>
+        <tr><td>Consumer No</td><td>DEMO 0001 9284</td></tr>
+        <tr><td>Amount payable</td><td>Rs. 1,250.00</td></tr>
+      </table>
+      <p><strong>Pay now to avoid disconnection. Last warning.</strong></p>
+      <div class="pay">
+        <div class="qr" aria-label="fake QR code"></div>
+        <div>
+          <p>Scan and pay using any UPI app</p>
+          <p>Pay to: demopower.bill@demoupi</p>
+          <p>Or call our officer immediately: 98765 43210</p>
+          <button>Pay Now</button>
+        </div>
+      </div>
+    </div>
+    <footer>DEMO – NOT A REAL BILL. Static test page for the Kavach scam shield; the company, UPI id and phone number are fictional.</footer>
+  </main>
+</body>
+</html>
