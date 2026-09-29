@@ -16,7 +16,8 @@ import pytest
 from detect.intent import detect, read_script
 from detect.screen_classifier import classify
 from fusion.incidents import REASON_ID, IncidentLog, record_of
-from fusion.risk import ALERT, CAUTION, QUIET, AlertEvent, CautionEvent, RemoteToolSignal, RiskEngine, fade
+from fusion.risk import (ALERT, CAUTION, QUIET, TACTIC_NAMES, AlertEvent, CautionEvent, RemoteToolSignal, RiskEngine,
+                         fade, reason_id_catalog)
 from kavach_config import load_config
 from tests.conftest import TRUTH_TABLE
 
@@ -26,6 +27,7 @@ SCRIPTS = ROOT / "demo" / "scripts"
 CFG = load_config(env={})
 T0 = 1000.0              # fake clock origin (small numbers keep log timestamps short)
 TICK = 0.5               # the pipeline re-scores every 0.5 s
+ASR_LAG = 1.5            # utterance end -> IntentResult reaches fusion (ASR + intent time)
 
 
 def screen(name: str):
@@ -51,6 +53,7 @@ class Sim:
         self.events: list = []
         self.log = log
         self.segments: list[tuple[float, float, str]] = []
+        self.first_tactic_ts: float | None = None        # when the first call tactic was said
 
     def _score(self):
         self.state = self.engine.score(T0 + self.t)
@@ -73,10 +76,15 @@ class Sim:
         self._score()
         return self
 
-    def say(self, t: float, line: str) -> "Sim":
-        """One more utterance in the rolling transcript -> intent over the whole window (like the ASR stage)."""
-        self.segments.append((T0 + t - 3.0, T0 + t, line))
-        return self.at(t, detect(list(self.segments), CFG.intent))
+    def say(self, t: float, line: str, lag: float = ASR_LAG) -> "Sim":
+        """Utterance ending at t - lag, its IntentResult (whole rolling window, like the ASR stage) reaching
+        fusion at t."""
+        end = T0 + t - lag
+        self.segments.append((end - 3.0, end, line))
+        res = detect(list(self.segments), CFG.intent)
+        if res.tactics and self.first_tactic_ts is None:
+            self.first_tactic_ts = end
+        return self.at(t, res, lag=lag)
 
     def call(self, name: str, start: float, end: float) -> "Sim":
         lines = call_lines(name)
@@ -101,7 +109,7 @@ def record(scenario: str, expect: str, sim: Sim, ok: bool) -> None:
     alerts = sim.alerts
     TRUTH_TABLE.append({
         "scenario": scenario, "expect": expect, "final": sim.state.score, "max": sim.max, "band": sim.state.band,
-        "alerts": len(alerts), "t2a_ms": f"{alerts[0].time_to_alert_ms:.0f}" if alerts else "-", "ok": ok,
+        "alerts": len(alerts), "trig_s": f"{alerts[0].t_trigger - T0:.1f}" if alerts else "-", "t2a_ms": f"{alerts[0].time_to_alert_ms:.0f}" if alerts else "-", "ok": ok,
         "reasons": ", ".join(sim.state.reason_ids) or "-",
     })
 
@@ -113,6 +121,7 @@ def test_hero_scam_call():
     sim = Sim()
     sim.at(0, remote())
     sim.at(5, screen("bank_transfer"), lag=0.8)          # bank + otp_card, no screen tactics
+    assert sim.state.score == 69 and sim.state.band == CAUTION and "gate:no_tactic" in sim.state.reason_ids
     sim.call("hero_call", 8, 60)
     st = sim.state
     ok = (st.score == 100 and st.band == ALERT and "combo" in st.reason_ids and len(sim.alerts) == 1
@@ -123,9 +132,11 @@ def test_hero_scam_call():
     assert {"screen:bank", "screen:otp_card"} <= set(st.reason_ids)
     assert {f"call:{t}" for t in ("authority", "threat", "secrecy", "urgency", "money_move")} <= set(st.reason_ids)
     assert len(sim.alerts) == 1, "exactly one AlertEvent per incident"
-    # remote 30 + bank 25 + otp 20 = 75 crosses 70 at the screen event; t_trigger = when it was captured
-    assert sim.alerts[0].t_trigger == pytest.approx(T0 + 5 - 0.8)
-    assert sim.alerts[0].time_to_alert_ms == pytest.approx(800)
+    # remote + bank + otp = 75 is gated to 69 (caution); the first call tactic opens the gate -> alert.
+    # t_trigger = when that tactic was said, so time-to-alert = ASR lag, not time since the bank screen.
+    assert sim.alerts[0].t_trigger == pytest.approx(sim.first_tactic_ts)
+    assert sim.alerts[0].time_to_alert_ms == pytest.approx(ASR_LAG * 1000)
+    assert "gate:no_tactic" not in st.reason_ids
     assert ok
 
 
@@ -138,6 +149,56 @@ def test_genuine_it_help():
     assert sim.state.score == 30 and sim.state.band == QUIET
     assert sim.max == 30 and not sim.events
     assert ok
+
+
+def test_it_helper_bank_otp_is_gated_to_caution():
+    """Remote live + genuine bank page with OTP + IT call without tactics: 75 raw, gated to 69 -> caution."""
+    sim = Sim().at(0, remote()).at(3, screen("genuine_netbanking"))
+    sim.call("normal_it_call", 5, 60)
+    st = sim.state
+    toasts = [e for e in sim.events if isinstance(e, CautionEvent)]
+    ok = st.score == 69 and st.band == CAUTION and "gate:no_tactic" in st.reason_ids and not sim.alerts
+    record("IT helper+bank+OTP", "69 caution gate", sim, ok)
+    assert st.score == 69 and st.band == CAUTION and not sim.alerts
+    assert "gate:no_tactic" in st.reason_ids and "combo" not in st.reason_ids
+    assert len(toasts) == 1 and "gate:no_tactic" in toasts[0].reason_ids
+    assert sum(c["points"] for c in st.contributions) == pytest.approx(69)
+    assert ok
+
+
+def test_it_helper_then_one_call_tactic_alerts():
+    """Same, then one call tactic: the gate opens (+10 tactic +20 combo) -> alert, t_trigger = the tactic."""
+    sim = Sim().at(0, remote()).at(3, screen("genuine_netbanking"))
+    sim.call("normal_it_call", 5, 60)
+    sim.say(70, "I am calling from the CBI cyber cell.")
+    sim.advance(80)
+    st = sim.state
+    ok = (st.band == ALERT and len(sim.alerts) == 1 and "gate:no_tactic" not in st.reason_ids
+          and sim.alerts[0].t_trigger == pytest.approx(sim.first_tactic_ts))
+    record("IT helper + 1 tactic", "alert @tactic", sim, ok)
+    assert [r for r in st.reason_ids if r.startswith("call:")] == ["call:authority"]
+    assert st.score == 100 and st.band == ALERT and "combo" in st.reason_ids
+    assert len(sim.alerts) == 1
+    assert sim.alerts[0].t_trigger == pytest.approx(T0 + 70 - ASR_LAG) == pytest.approx(sim.first_tactic_ts)
+    assert sim.alerts[0].time_to_alert_ms == pytest.approx(ASR_LAG * 1000)
+    assert ok
+
+
+def test_gate_clamp_does_not_end_an_alert():
+    """In alert, the only tactic fades -> clamp to 69 (>= 60): stays alert; only < 60 for 10 s clears it."""
+    sim = Sim().at(0, remote()).at(0, screen("bank_transfer"))
+    sim.say(2, "I am calling from the CBI cyber cell.")
+    assert sim.state.band == ALERT
+    for t in (100, 200, 300):
+        sim.at(t, screen("bank_transfer"))              # bank page still open
+    sim.advance(320)                                     # call tactic gone (180 s + 20 s fade)
+    assert sim.state.score == 69 and "gate:no_tactic" in sim.state.reason_ids
+    assert sim.state.band == ALERT and len(sim.alerts) == 1
+    sim.at(320, remote(False))                           # tool closed: 45 < 60
+    sim.advance(329.5)
+    assert sim.state.band == ALERT
+    sim.advance(330)
+    assert sim.state.band == QUIET and "gate:no_tactic" not in sim.state.reason_ids
 
 
 def test_news_video():
@@ -212,11 +273,11 @@ def test_decay_and_alert_hysteresis():
 
 
 def test_hysteresis_timer_resets_when_score_recovers():
-    sim = Sim().at(0, remote()).at(0, screen("genuine_netbanking"))      # 75: alert
+    sim = Sim().at(0, remote()).at(0, screen("fake_virus_alert"))        # 80: alert
     assert sim.state.band == ALERT
-    sim.at(10, remote(False))                                            # 45: < 60
+    sim.at(10, remote(False))                                            # 50: < 60
     sim.advance(18)
-    sim.at(18, remote())                                                 # back to 75 before 10 s
+    sim.at(18, remote())                                                 # back to 80 before 10 s
     sim.at(19, remote(False))
     sim.advance(28)                                                      # < 60 for 9 s since 19
     assert sim.state.band == ALERT
@@ -243,6 +304,7 @@ def test_override_suppresses_same_signals_but_not_new_type():
     assert sim.state.band == QUIET
     # ... same signal types come back within 10 minutes: new incident, but suppressed
     sim.at(430, remote()).at(435, screen("bank_transfer"))
+    sim.say(440, "I am calling from the CBI cyber cell.")
     sim.advance(450)
     assert sim.state.score >= 70 and sim.state.band == ALERT and len(sim.alerts) == 1
     # A new signal type (fake alert label + screen tactics): alert again
@@ -328,7 +390,7 @@ def test_incident_log_has_ids_and_numbers_only(tmp_path):
         assert base <= set(r) <= base | {"new_types", "override_until", "types"}
         assert all(REASON_ID.match(i) for i in r["reason_ids"])
         assert (r["time_to_alert_ms"] is not None) == (r["kind"] == "alert")
-    assert records[kinds.index("alert")]["time_to_alert_ms"] == pytest.approx(500)
+    assert records[kinds.index("alert")]["time_to_alert_ms"] == pytest.approx(ASR_LAG * 1000)   # hero: first call tactic
 
     # No fixture text leaks: no 3-word phrase, no 6+ digit run (OTP, account, phone) from any input.
     logged = log.path.read_text(encoding="utf-8").lower()
@@ -350,3 +412,24 @@ def test_record_drops_malformed_reason_ids():
     assert record_of(ev)["reason_ids"] == ["screen:bank", "call:threat"]
     with pytest.raises(TypeError):
         record_of(SimpleNamespace(kind="transcript", text="hello"))
+
+
+def test_reason_id_catalog_covers_every_emitted_id():
+    """act/strings.yaml (user-facing text per reason id) is checked against reason_id_catalog()."""
+    from detect.tactic_lexicon import TACTICS
+
+    assert tuple(TACTIC_NAMES) == tuple(TACTICS)
+    catalog = reason_id_catalog(CFG)
+    assert "gate:no_tactic" in catalog and "combo" in catalog and "remote_tool:quick_assist" in catalog
+    assert all(REASON_ID.match(i) for i in catalog) and len(catalog) == len(set(catalog))
+    emitted = {r for row_sim in _catalog_sims() for r in row_sim.state.reason_ids}
+    emitted |= {r for row_sim in _catalog_sims() for e in row_sim.events for r in e.reason_ids}
+    assert emitted and emitted <= set(catalog)
+
+
+def _catalog_sims():
+    a = Sim().at(0, remote(tool="Quick Assist")).at(1, screen("fake_virus_alert"))
+    b = Sim().at(0, remote()).at(1, screen("genuine_netbanking"))
+    c = Sim().at(0, remote()).at(1, screen("fake_kyc"))
+    c.call("hero_call", 2, 40)
+    return a, b, c

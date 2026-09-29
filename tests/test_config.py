@@ -50,7 +50,7 @@ def test_fusion_values():
     f = load_config(env={}).fusion
     assert (f.bands.caution, f.bands.alert) == (50, 70)
     assert (f.fade_s, f.label_threshold, f.alert_clear_below, f.alert_clear_hold_s) == (20, 0.5, 60, 10)
-    assert (f.caution_cooldown_s, f.override_minutes) == (60, 10)
+    assert (f.caution_cooldown_s, f.override_minutes, f.no_tactic_max) == (60, 10, 69)
 
 
 def test_provider_env_override():

@@ -143,6 +143,9 @@ fusion:                    # fusion/risk.py (F6) + incident log (F11)
     combo_bonus:  {weight: 20, decay_s: null, cap: 20}   # remote live + money screen + any tactic
   fade_s: 20               # linear fade to 0 after decay_s
   label_threshold: 0.5     # a screen label counts at or above this score
+  # Tactic gate: without an active tactic (screen or call) or fake_alert label, the score is clamped
+  # to this (just under alert) and reason id gate:no_tactic is reported. Remote + bank + OTP -> caution.
+  no_tactic_max: 69
   bands:
     caution: 50
     alert: 70

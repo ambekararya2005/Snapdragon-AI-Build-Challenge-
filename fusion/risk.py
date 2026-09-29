@@ -21,11 +21,17 @@ Signals (config fusion.signals: weight, decay_s, cap):
 A hit keeps full weight for decay_s after it was last seen, then fades linearly to 0 over fade_s.
 Each signal is capped, then the total is capped at 100.
 
+Tactic gate: without at least one active tactic (screen_tactic / call_tactic) or an active
+fake_alert label, the score is clamped to fusion.no_tactic_max (69, just under alert) and the reason
+id "gate:no_tactic" is reported while the clamp is active. So remote + bank + OTP alone (a genuine IT
+helper while a bank page is open) is a caution, and the alert fires at the first scam signal.
+
 Bands: quiet < caution (50) <= caution < alert (70). Alert has hysteresis: it clears only after the
 score stays below alert_clear_below (60) for alert_clear_hold_s (10 s). One AlertEvent per incident.
 
 Output is ids and numbers only (reason ids like remote_tool:anydesk, screen:bank, call:authority,
-combo). No screen text, transcript or window title ever enters the engine's state.
+combo, gate:no_tactic). No screen text, transcript or window title ever enters the engine's state.
+reason_id_catalog(config) lists every id the engine can emit (for user-facing string tables).
 
 Self-test:  python -m fusion.risk        # replays a short scripted timeline, prints the score per step
 """
@@ -34,10 +40,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 SIGNAL_TYPES = ("remote_tool", "money_screen", "otp_card", "fake_alert_label", "screen_tactic", "call_tactic")
 COMBO = "combo_bonus"
+GATE_TYPES = frozenset({"screen_tactic", "call_tactic", "fake_alert_label"})   # any of these opens the gate
+GATE_REASON = "gate:no_tactic"
+TACTIC_NAMES = ("authority", "threat", "secrecy", "urgency", "money_move")   # detect.tactic_lexicon.TACTICS
 MONEY_LABELS = ("bank", "upi_payment")
 QUIET, CAUTION, ALERT = "quiet", "caution", "alert"
 
@@ -53,6 +62,7 @@ DEFAULT_SIGNALS: dict[str, dict[str, Any]] = {
 DEFAULTS: dict[str, Any] = {
     "fade_s": 20.0, "label_threshold": 0.5, "bands": {"caution": 50, "alert": 70},
     "alert_clear_below": 60, "alert_clear_hold_s": 10.0, "caution_cooldown_s": 60.0, "override_minutes": 10.0,
+    "no_tactic_max": 69,
 }
 _ID_PART = re.compile(r"[^a-z0-9]+")
 
@@ -60,6 +70,20 @@ _ID_PART = re.compile(r"[^a-z0-9]+")
 def slug(name: str) -> str:
     """Tool / label / tactic name -> reason-id part ("Quick Assist" -> "quick_assist")."""
     return _ID_PART.sub("_", str(name).lower()).strip("_") or "unknown"
+
+
+def reason_id_catalog(config: Mapping[str, Any] | None = None, extra_tools: Iterable[str] = ()) -> list[str]:
+    """Every reason id RiskEngine can emit: fixed ids + remote_tool:<slug> for processes.known_tools.
+    User-facing string tables (act/strings.yaml) are checked against this list."""
+    if config is None:
+        from kavach_config import get_config
+        config = get_config()
+    tools = [t.get("name", "") for t in (config.get("processes", {}) or {}).get("known_tools", []) or []]
+    ids = [f"remote_tool:{slug(t)}" for t in [*tools, *extra_tools] if t]
+    ids += [f"screen:{name}" for name in (*MONEY_LABELS, "otp_card", "fake_alert")]
+    ids += [f"screen_tactic:{t}" for t in TACTIC_NAMES] + [f"call:{t}" for t in TACTIC_NAMES]
+    ids += ["combo", GATE_REASON]
+    return list(dict.fromkeys(ids))
 
 
 def fade(age_s: float, decay_s: float | None, fade_s: float) -> float:
@@ -150,6 +174,7 @@ class RiskEngine:
         self.clear_hold_s = float(get("alert_clear_hold_s"))
         self.caution_cooldown_s = float(get("caution_cooldown_s"))
         self.override_s = float(get("override_minutes")) * 60.0
+        self.no_tactic_max = float(get("no_tactic_max"))
         self.reset()
 
     def reset(self) -> None:
@@ -248,7 +273,13 @@ class RiskEngine:
             pts = float(min(c["weight"], c["cap"]))
             totals[COMBO] = pts
             contributions.append({"signal": "combo", "type": COMBO, "points": round(pts, 1), "age_s": 0.0})
-        return min(100.0, sum(totals.values())), contributions, active
+        total = min(100.0, sum(totals.values()))
+        if not (active & GATE_TYPES) and total > self.no_tactic_max:
+            # Tactic gate: no scam signal yet -> stay below the alert band.
+            contributions.append({"signal": GATE_REASON, "type": "gate",
+                                  "points": round(self.no_tactic_max - total, 1), "age_s": 0.0})
+            total = self.no_tactic_max
+        return total, contributions, active
 
     def _prune(self, now: float) -> None:
         for rid, (kind, seen) in list(self._items.items()):

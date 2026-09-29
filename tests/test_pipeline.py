@@ -13,8 +13,8 @@ from kavach_config import load_config
 CFG = load_config(env={})
 
 
-def _label(**labels):
-    return SimpleNamespace(labels=labels, screen_tactics=frozenset())
+def _label(tactics=(), **labels):
+    return SimpleNamespace(labels=labels, screen_tactics=frozenset(tactics))
 
 
 def _wait(pred, timeout=3.0):
@@ -37,10 +37,10 @@ def test_fusion_thread_publishes_states_alerts_and_override(tmp_path):
         assert _wait(lambda: len(states) >= 2), "ticks publish states without any events"
         t = time.time()
         pipe.post("processes", RemoteToolSignal("AnyDesk", True, True), t)
-        pipe.post("screen", _label(bank=0.9, otp_card=0.7), t - 0.3)
+        pipe.post("screen", _label(bank=0.9, otp_card=0.7, tactics={"threat"}), t - 0.3)
         assert _wait(lambda: any(e.kind == "alert" for e in events))
         alert = next(e for e in events if e.kind == "alert")
-        assert alert.score == 75 and alert.time_to_alert_ms >= 300
+        assert alert.score == 100 and alert.time_to_alert_ms >= 300
         assert pipe.state.band == "alert"
         pipe.override()
         assert _wait(lambda: any(e.kind == "override" for e in events))
