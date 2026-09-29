@@ -131,6 +131,8 @@ intent:                    # detect/intent.py (F5): scam tactics in the rolling 
   fuzzy_min_len: 8         # only patterns with >= this many letters are matched fuzzily; digits never
   second_person_boost: 1.2 # "you"/"aapka" in the same sentence
   reporting_factor: 0.25   # "scammers", "police said", "beware"... in the same sentence (news/explainers)
+  reporting_carry_words: 30  # a sentence with no cue and no "you" inherits a reporting cue that ended within this
+                             # many words before it (ASR-split / chunk-cut news sentences); 0 = off
   repeat_decay: 0.5        # 2nd, 3rd... entry of a tactic counts 0.5, 0.25... (many weak mentions stay weak)
   max_sentence_words: 30   # unpunctuated ASR text is cut into sentences of at most this many words
 
@@ -143,7 +145,9 @@ fusion:                    # fusion/risk.py (F6) + incident log (F11)
     otp_card:     {weight: 20, decay_s: 120,  cap: 20}
     fake_alert_label: {weight: 20, decay_s: 120, cap: 20}   # screen label fake_alert
     screen_tactic: {weight: 15, decay_s: 120, cap: 30}   # per tactic on screen
-    call_tactic:  {weight: 10, decay_s: 180,  cap: 40}   # per tactic in the call transcript
+    # per tactic in the call transcript. 13/65: a call alone with 4+ tactics reaches caution (52) but never
+    # alert (65 < 70); tuned on bench/scenarios.py (bench/tuning/call_tactic_13.yaml, bench/results/tuning.md)
+    call_tactic:  {weight: 13, decay_s: 180,  cap: 65}
     combo_bonus:  {weight: 20, decay_s: null, cap: 20}   # remote live + money screen + any tactic
   fade_s: 20               # linear fade to 0 after decay_s
   label_threshold: 0.5     # a screen label counts at or above this score

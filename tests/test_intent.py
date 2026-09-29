@@ -186,3 +186,46 @@ def test_devanagari_patterns_are_matchable():
     lex = TacticLexicon({"entries": [{"id": "hi_arrest", "tactic": "threat", "weight": 0.5,
                                       "patterns": {"en": [], "hi_latn": [], "hi_deva": ["गिरफ्तार"]}}]}, "call")
     assert [m.entry.id for m in lex.match(default_canon("आपको गिरफ्तार किया जाएगा"))] == ["hi_arrest"]
+
+
+# ---------------------------------------------------------------- UPI collect request (PIN to receive)
+
+@pytest.mark.parametrize("text", [
+    "I have sent a collect request. Just approve it and enter your UPI PIN to receive the money.",
+    "Request aa gaya hoga, paise lene ke liye PIN daalo, turant.",
+    "Bas pin daalo paise aa jayenge aapke account mein.",
+])
+def test_pin_to_receive_is_money_move(text):
+    res = run(text)
+    assert "money_move" in res.tactics and "money_pin_to_receive" in res.evidence
+
+
+def test_pin_to_receive_advice_is_reporting_language():
+    res = run("Remember, you never need to enter your PIN to receive money. Beware of such requests.")
+    assert "money_move" not in res.tactics and "guard:reporting:money_pin_to_receive" in res.evidence
+
+
+# ---------------------------------------------------------------- reporting context carries one sentence
+
+def test_reporting_context_carries_to_a_split_or_cut_sentence():
+    # ASR split a news sentence: the fragment has no cue of its own but follows one that has.
+    split = "Police said the caller asked him to move his savings. For verification"
+    res = run(split)
+    assert "money_move" not in res.tactics and "guard:reporting_context:money_verification" in res.evidence
+    assert "money_move" in run(split, reporting_carry_words=0).tactics
+    # A chunk boundary cut the next sentence before its cue ("officials say ...") arrived.
+    cut = "The scammers kept him on a video call for two days. Cyber crime"
+    assert "authority" not in run(cut).tactics and "authority" in run(cut, reporting_carry_words=0).tactics
+    # Both at once (the live news_audio_bank case): a split fragment, then the cut tail.
+    both = "Police said the caller asked him to move his savings into a so called safe account. For verification. Cyber crime"
+    res = run(both)
+    assert "authority" not in res.tactics and "guard:reporting_context:auth_cyber_crime" in res.evidence
+
+
+def test_reporting_context_does_not_reach_the_caller_or_far_sentences():
+    # Addressing the listener never inherits, and ends the context.
+    assert "money_move" in run("Scammers are everywhere these days. You must transfer your savings for verification").tactics
+    assert "authority" in run("Police said so. Do you understand. This is the CBI").tactics
+    # Context reaches only reporting_carry_words words.
+    far = "Police said so. " + " ".join(["the weather was fine and the market was busy"] * 4) + ". This is the CBI"
+    assert "authority" in run(far).tactics

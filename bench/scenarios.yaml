@@ -5,11 +5,12 @@
 #   type      scam | normal
 #   page      demo/test_pages/<file>, opened in its own browser window and brought to the front; null = none
 #             (the runner's neutral idle page stays in front)
-#   remote    none | fake | fake_idle | anydesk | anydesk_idle
-#               fake       a hidden waitfor.exe registered as a remote tool for the run (live user process)
-#               fake_idle  the same exe with the tool's idle argument (role "tray": installed, not live)
-#               anydesk*   the real AnyDesk.exe if installed (--anydesk PATH); otherwise the fake stands in
-#                          and the row says so
+#   remote    none | fake | fake_tray | anydesk | anydesk_idle
+#               fake          a hidden waitfor.exe registered as a remote tool for the run (live user process)
+#               fake_tray     the same exe with the tool's idle argument (role "tray": installed, not live)
+#               anydesk       the real AnyDesk.exe if installed (--anydesk PATH), else the fake (user process);
+#                             the row says so
+#               anydesk_idle  AnyDesk open with no incoming session: a user process, same setup as anydesk
 #   call      demo/scripts/<file>, spoken with SAPI TTS through the speakers (WASAPI loopback); null = none
 #   duration_s  seconds from pipeline start to teardown (the call is cut off if still speaking)
 #   expected  alert | caution | quiet: the band the scenario should reach at most (normal) / at least (scam)
@@ -60,5 +61,6 @@ scenarios:
      duration_s: 30, expected: quiet, desc: "Reading a normal email"}
   - {id: news_audio_bank, type: normal, page: mock_bank_transfer.html, remote: none, call: news_clip.txt,
      duration_s: 75, expected: quiet, desc: "YouTube-style scam news audio while on net banking"}
+  # remote access + money screen, no tactic -> caution by design (tactic gate)
   - {id: anydesk_idle_bank, type: normal, page: mock_bank_transfer.html, remote: anydesk_idle, call: null,
-     duration_s: 30, expected: quiet, desc: "AnyDesk installed but idle, net banking open"}
+     duration_s: 30, expected: caution, desc: "AnyDesk open (no session), net banking open"}

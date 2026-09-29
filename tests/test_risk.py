@@ -348,7 +348,7 @@ def test_fade_and_caps():
     sim.say(0, "I am calling from the CBI, you are under digital arrest, do not tell anyone, "
                "transfer the money to a safe account immediately or you will be arrested")
     calls = [c for c in sim.state.contributions if c["type"] == "call_tactic"]
-    assert sum(c["points"] for c in calls) <= 40 + 1e-6
+    assert len(calls) >= 4 and sum(c["points"] for c in calls) <= CFG.fusion.signals.call_tactic.cap + 1e-6
     assert sim.state.score <= 100
 
 

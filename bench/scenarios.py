@@ -25,6 +25,8 @@ hardware. Replay covers the fusion section only (weights, decay, caps, gate, ban
     python -m bench.scenarios --dry-run                   # validate spec + assets, print the plan
     python -m bench.scenarios                             # all 20, live (~25 min)
     python -m bench.scenarios --only fake_kyc,work_call   # re-run some; other rows are kept
+    python -m bench.scenarios --only news_audio_bank --repeat 3   # row = worst of 3, all 3 listed
+    python -m bench.scenarios --report                    # rewrite scenarios.md/.csv from recorded runs
     python -m bench.scenarios --replay                    # re-score recorded runs with the current config
     python -m bench.scenarios --compare bench/tuning/x.yaml  # before/after for all scenarios -> tuning.md
                                                           # (x.yaml: only the keys to change, merged over config.yaml)
@@ -38,6 +40,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
 import html
 import json
 import logging
@@ -71,18 +74,19 @@ SCRIPTS_DIR = ROOT / "demo" / "scripts"
 NEUTRAL_PAGE = "neutral.html"
 RUNS_FILE = "scenario_runs.jsonl"
 TYPES = ("scam", "normal")
-REMOTE_MODES = ("none", "fake", "fake_idle", "anydesk", "anydesk_idle")
+REMOTE_MODES = ("none", "fake", "fake_tray", "anydesk", "anydesk_idle")
+ANYDESK_NOTE = "AnyDesk not installed: waitfor.exe stands in (fake remote tool, user process)"
 RANK = {QUIET: 0, CAUTION: 1, ALERT: 2}
 TARGETS = {"scam_caught_pct": 90.0, "normal_alerts": 0, "normal_cautions": 1, "tta_p95_s": 5.0}
 
 # Fake remote tool: a hidden waitfor.exe (ships with Windows; waits for a local signal name, no window,
 # no network) registered as a known tool for the bench run only. The signal name is its only argument,
-# so the idle variant carries the tool's idle arg and gets role "tray" like an idle AnyDesk.
+# so the fake_tray variant carries the tool's idle arg and gets role "tray" like AnyDesk's own tray process.
 FAKE_TOOL = {"name": "FakeRemote", "exe_names": ["waitfor.exe"], "idle_args": ["kavachbenchidle"]}
 FAKE_LIVE_ARG, FAKE_IDLE_ARG = "kavachbenchlive", "kavachbenchidle"
 ANYDESK_PATHS = (r"C:\Program Files (x86)\AnyDesk\AnyDesk.exe", r"C:\Program Files\AnyDesk\AnyDesk.exe")
 
-CSV_FIELDS = ("id", "type", "expected", "outcome", "ok", "max_score", "final_score", "final_band", "alert",
+CSV_FIELDS = ("id", "source", "type", "expected", "outcome", "ok", "max_score", "final_score", "final_band", "alert",
               "caution", "trigger_s", "alert_s", "decision_ms", "e2e_ms", "stimulus", "reasons", "page",
               "remote", "call", "duration_s", "notes")
 
@@ -185,7 +189,8 @@ def encode_signal(stage: str, payload: Any, ts: float, t_post: float, t0: float)
     elif hasattr(payload, "tactics"):
         d.update(kind="call", tactics={
             t: rel(h.last_ts) if isinstance(getattr(h, "last_ts", None), (int, float)) else None
-            for t, h in (payload.tactics or {}).items()})
+            for t, h in (payload.tactics or {}).items()},
+            evidence=sorted(getattr(payload, "evidence", None) or []))   # lexicon ids + guard:/fuzzy: decisions
     else:
         return None
     return d
@@ -347,16 +352,39 @@ def is_ok(type_: str, expected: str, outcome: str) -> bool:
     return RANK[outcome] <= RANK[expected]
 
 
-def make_row(record: Mapping[str, Any], o: Outcome) -> dict[str, Any]:
+def make_row(record: Mapping[str, Any], o: Outcome, source: str = "live") -> dict[str, Any]:
+    """source: "live" (this outcome was measured under the current config) or "replay"."""
+    notes = [n for n in record.get("notes") or [] if not n.startswith("AnyDesk not installed")]
+    if str(record.get("remote", "")).startswith("anydesk") and str(record.get("remote_used", "")).startswith("fake"):
+        notes.insert(0, ANYDESK_NOTE)
+    repeats = record.get("repeats") or []
+    if source == "live" and len(repeats) > 1:
+        notes.append(f"{len(repeats)} live runs (row = worst): " + ", ".join(f"{r['band']} {r['max_score']}" for r in repeats))
     return {
-        "id": record["id"], "type": record["type"], "expected": record["expected"], "outcome": o.band,
+        "id": record["id"], "source": source, "type": record["type"], "expected": record["expected"], "outcome": o.band,
         "ok": is_ok(record["type"], record["expected"], o.band), "max_score": o.max_score,
         "final_score": o.final_score, "final_band": o.final_band, "alert": o.alert, "caution": o.caution,
         "trigger_s": o.trigger_s, "alert_s": o.alert_s, "decision_ms": o.decision_ms, "e2e_ms": o.e2e_ms,
         "stimulus": o.stimulus, "reasons": " ".join(o.reasons[:6]), "page": record.get("page") or "",
         "remote": record.get("remote_used") or record.get("remote") or "none", "call": record.get("call") or "",
-        "duration_s": record.get("duration_s"), "notes": "; ".join(record.get("notes") or []),
+        "duration_s": record.get("duration_s"), "notes": "; ".join(notes),
     }
+
+
+def config_fingerprint(cfg: Mapping[str, Any]) -> str:
+    """Short hash of everything that shapes a live result: the config (minus its path) and the lexicons.
+    A recorded run counts as live for the report only while this matches; otherwise it is replayed."""
+    h = hashlib.sha1(json.dumps({k: v for k, v in cfg.items() if k != "config_path"}, sort_keys=True,
+                                default=str).encode())
+    for p in sorted((ROOT / "detect" / "lexicons").glob("*.yaml")):
+        h.update(p.read_bytes().replace(b"\r\n", b"\n"))
+    return h.hexdigest()[:12]
+
+
+def worst_run(type_: str, runs: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    """Of repeated live runs: the highest band / score for a normal scenario, the lowest for a scam."""
+    key = lambda r: (RANK[r["live"]["band"]], r["live"]["max_score"])  # noqa: E731
+    return max(runs, key=key) if type_ == "normal" else min(runs, key=key)
 
 
 def percentile(values: Sequence[float], q: float) -> float | None:
@@ -380,7 +408,8 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "scam_caught": caught, "scam_caught_pct": round(100.0 * caught / len(scam), 1) if scam else None,
         "scam_alerted": sum(1 for r in scam if r["alert"]),
         "normal_alerts": sum(1 for r in normal if r["alert"]),
-        "normal_cautions": sum(1 for r in normal if r["outcome"] == CAUTION),
+        # a caution only counts as a false alarm where the scenario expects quiet (not where it is by design)
+        "normal_cautions": sum(1 for r in normal if r["outcome"] == CAUTION and r["expected"] == QUIET),
         "tta_n": len(e2e),
         "tta_p50_s": _r(percentile(e2e, 0.5)), "tta_p95_s": _r(percentile(e2e, 0.95)),
         "decision_p50_s": _r(percentile(dec, 0.5)), "decision_p95_s": _r(percentile(dec, 0.95)),
@@ -416,7 +445,7 @@ def summary_lines(s: Mapping[str, Any]) -> list[tuple[str, str, str, str]]:
         ("scam caught (outcome >= expected)", f"{s['scam_caught']}/{s['n_scam']} ({_fmt(s['scam_caught_pct'])}%)",
          f">= {TARGETS['scam_caught_pct']:.0f}%", ok(s["pass_caught"])),
         ("scam alerted", f"{s['scam_alerted']}/{s['n_scam']}", "-", ""),
-        ("false alarms among normal", f"{s['normal_alerts']} alerts, {s['normal_cautions']} cautions of {s['n_normal']}",
+        ("false alarms among normal", f"{s['normal_alerts']} alerts, {s['normal_cautions']} false cautions of {s['n_normal']}",
          f"{TARGETS['normal_alerts']} alerts, <= {TARGETS['normal_cautions']} caution", ok(s["pass_false_alarms"])),
         ("time to alert, stimulus -> alert", tta, f"p95 <= {TARGETS['tta_p95_s']:.0f} s", ok(s["pass_tta"])),
         ("time to alert, trigger -> decision",
@@ -448,18 +477,24 @@ def write_markdown(rows: Sequence[Mapping[str, Any]], summary: Mapping[str, Any]
     lines += ["", f"Overall: **{'all targets met' if summary['pass_all'] else 'targets missed'}**", "",
               "## Per scenario", ""]
     lines += _md_table(
-        ("id", "type", "page", "remote", "call", "expected", "outcome", "ok", "max", "final", "alert @s",
+        ("id", "source", "type", "page", "remote", "call", "expected", "outcome", "ok", "max", "final", "alert @s",
          "stimulus -> alert s", "trigger -> decision ms", "reason ids at max", "notes"),
-        ([r["id"], r["type"], r["page"] or "-", r["remote"], r["call"] or "-", r["expected"], r["outcome"],
+        ([r["id"], r["source"], r["type"], r["page"] or "-", r["remote"], r["call"] or "-", r["expected"], r["outcome"],
           "yes" if r["ok"] else "**NO**", r["max_score"], f"{r['final_score']} {r['final_band']}", _fmt(r["alert_s"]),
           _fmt(None if r["e2e_ms"] is None else r["e2e_ms"] / 1000.0) + (f" ({r['stimulus']})" if r["stimulus"] else ""),
           _fmt(r["decision_ms"], 0), r["reasons"] or "-", r["notes"] or ""] for r in rows))
     lines += ["", "## Definitions", "",
+              "- source: live = measured live under the current config and lexicons; replay = the scenario's "
+              "recorded signal stream (from an earlier live run) re-scored by the fusion engine under the current "
+              "config. Replay assumes the detectors produce the same labels/tactics; the lexicon and guard changes "
+              "since those runs were checked to leave these scenarios' pages and scripts unchanged.",
               "- outcome: alert if an alert fired, else caution if the caution band was reached, else quiet. "
-              "ok = scam outcome >= expected, normal outcome <= expected.",
-              "- stimulus -> alert: from the latest runner action before the trigger (page on screen, remote tool "
-              "started, spoken line finished) to the alert decision. When the deciding words were in a line still "
-              "being spoken, the previous line's end is used, so this errs on the long side.",
+              "ok = scam outcome >= expected, normal outcome <= expected. A caution counts as a false alarm only "
+              "where the scenario expects quiet (anydesk_idle_bank expects caution by design: tactic gate).",
+              "- stimulus -> alert: when the alert's trigger is speech, from the moment the tipping phrase was "
+              "spoken (speech:<tactic>; found on the script text, placed within its line by character position) "
+              "to the alert decision; otherwise from the latest runner action before the trigger (page on screen, "
+              "remote tool started, spoken line finished).",
               "- trigger -> decision: AlertEvent.decision_ms, from the observation time of the signal that crossed "
               "the alert band (frame capture, audio chunk end, process poll) to the fusion decision.",
               "- Headless: no overlay, so the time for the warning window to appear (typically < 0.3 s) is not included.",
@@ -496,15 +531,20 @@ def fusion_summary(cfg: Mapping[str, Any]) -> str:
 
 def write_reports(records: Mapping[str, Mapping[str, Any]], order: Sequence[str], out_dir: Path,
                   cfg: Mapping[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """scenarios.md + scenarios.csv from the live outcome of every recorded scenario, in spec order."""
+    """scenarios.md + scenarios.csv for every recorded scenario, in spec order: the live outcome where the
+    run was recorded under the current config + lexicons, else a replay of its signals under `cfg`."""
+    fp = config_fingerprint(cfg)
     recs = [records[i] for i in order if i in records]
-    rows = [make_row(r, Outcome(**r["live"])) for r in recs]
+    rows = [make_row(r, Outcome(**r["live"]), "live") if r.get("fingerprint") == fp
+            else make_row(r, replay(r, cfg), "replay") for r in recs]
     summary = summarize(rows)
     runs = sorted(r["run_at"] for r in recs)
     providers = sorted({f"{k} {v}" for r in recs for k, v in (r.get("providers") or {}).items() if v})
+    n_live = sum(1 for r in rows if r["source"] == "live")
     meta = {
         "runs": f"{runs[0]} .. {runs[-1]}" if runs else "-",
-        "scenarios": f"{len(recs)} ({summary['n_scam']} scam, {summary['n_normal']} normal)",
+        "scenarios": f"{len(recs)} ({summary['n_scam']} scam, {summary['n_normal']} normal); "
+                     f"{n_live} live under this config, {len(rows) - n_live} replayed (see Definitions)",
         "machine": f"{platform.system()} {platform.release()}, {platform.processor() or platform.machine()}",
         "models": ", ".join(providers) or "-",
         "fusion config": fusion_summary(cfg),
@@ -515,11 +555,12 @@ def write_reports(records: Mapping[str, Mapping[str, Any]], order: Sequence[str]
 
 
 def print_rows(rows: Sequence[Mapping[str, Any]], summary: Mapping[str, Any]) -> None:
-    print(f"{'id':<24}{'type':<8}{'expected':<9}{'outcome':<9}{'ok':<4}{'max':>4}  {'e2e s':>6}  reason ids at max")
+    print(f"{'id':<24}{'source':<8}{'type':<8}{'expected':<9}{'outcome':<9}{'ok':<4}{'max':>4}  {'e2e s':>6}  "
+          f"reason ids at max")
     for r in rows:
         e2e = "-" if r["e2e_ms"] is None else f"{r['e2e_ms'] / 1000:.1f}"
-        print(f"{r['id']:<24}{r['type']:<8}{r['expected']:<9}{r['outcome']:<9}{'yes' if r['ok'] else 'NO':<4}"
-              f"{r['max_score']:>4}  {e2e:>6}  {r['reasons'] or '-'}")
+        print(f"{r['id']:<24}{r.get('source', 'live'):<8}{r['type']:<8}{r['expected']:<9}{r['outcome']:<9}"
+              f"{'yes' if r['ok'] else 'NO':<4}{r['max_score']:>4}  {e2e:>6}  {r['reasons'] or '-'}")
     print("--- summary")
     for metric, value, target, status in summary_lines(summary):
         print(f"  {metric:<36} {value:<42} target {target:<26} {status}")
@@ -726,12 +767,18 @@ class Browser:
 
 
 class RemoteTool:
-    """none / fake / fake_idle / anydesk / anydesk_idle. anydesk* falls back to the fake when AnyDesk.exe
-    is not installed; an installed AnyDesk's idle state is its own service/tray processes (nothing started)."""
+    """none | fake | fake_tray | anydesk | anydesk_idle.
+
+    anydesk       AnyDesk.exe started (user process: remote access counts as live)
+    anydesk_idle  the same - AnyDesk open, no incoming session. The bench has no remote party, so the two
+                  differ only in intent; processes.py counts a user-role AnyDesk as live either way
+    fake          hidden waitfor.exe as a user-role process (live)
+    fake_tray     waitfor.exe with the tool's idle arg: role "tray" (installed / tray only, NOT live)
+    anydesk* fall back to the fake (user process) when AnyDesk.exe is not installed; the row says so."""
 
     def __init__(self, mode: str, anydesk: str | None = None):
         self.mode = mode
-        self.idle = mode.endswith("_idle")
+        self.tray = mode == "fake_tray"
         self.anydesk = anydesk if mode.startswith("anydesk") else None
         self.proc: subprocess.Popen | None = None
         if mode == "none":
@@ -739,18 +786,18 @@ class RemoteTool:
         elif self.anydesk:
             self.used, self.note = mode, ""
         else:
-            self.used = "fake_idle" if self.idle else "fake"
-            self.note = "AnyDesk not installed: fake tool stands in" if mode.startswith("anydesk") else ""
+            self.used = "fake_tray" if self.tray else "fake"
+            self.note = ANYDESK_NOTE if mode.startswith("anydesk") else ""
 
     def start(self, seconds: float) -> bool:
         """True if a process was started (a stimulus)."""
-        if self.mode == "none" or (self.anydesk and self.idle):
+        if self.mode == "none":
             return False
         if self.anydesk:
             self.proc = subprocess.Popen([self.anydesk])
         else:
             self.proc = subprocess.Popen(
-                ["waitfor.exe", "/T", str(int(seconds) + 60), FAKE_IDLE_ARG if self.idle else FAKE_LIVE_ARG],
+                ["waitfor.exe", "/T", str(int(seconds) + 60), FAKE_IDLE_ARG if self.tray else FAKE_LIVE_ARG],
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
@@ -939,10 +986,13 @@ def run_scenario(sc: Scenario, cfg: Mapping[str, Any], ocr: Any, asr: Any, brows
 
 
 def run_live(scenarios: Sequence[Scenario], cfg: Mapping[str, Any], out_dir: Path, order: Sequence[str],
-             anydesk: str | None, settle_s: float) -> dict[str, dict[str, Any]]:
+             anydesk: str | None, settle_s: float, repeat: int = 1) -> dict[str, dict[str, Any]]:
+    """Runs each scenario `repeat` times; the stored record is the worst run (worst_run), with every run's
+    outcome under "repeats"."""
     from models.asr import ASR
     from models.ocr import create_backend
 
+    fp = config_fingerprint(cfg)
     runs_path = out_dir / RUNS_FILE
     records = load_records(runs_path)
     print("loading models ...", flush=True)
@@ -956,9 +1006,17 @@ def run_live(scenarios: Sequence[Scenario], cfg: Mapping[str, Any], out_dir: Pat
     print(f"browser: {browser.name}; neutral page {'open' if neutral else 'NOT found'}", flush=True)
     try:
         for n, sc in enumerate(scenarios, 1):
-            records[sc.id] = run_scenario(sc, cfg, ocr, asr, browser, neutral, anydesk, f"[{n}/{len(scenarios)}]")
+            runs = []
+            for k in range(1, repeat + 1):
+                label = f"[{n}/{len(scenarios)}]" + (f" run {k}/{repeat}" if repeat > 1 else "")
+                runs.append(run_scenario(sc, cfg, ocr, asr, browser, neutral, anydesk, label))
+                time.sleep(settle_s)
+            rec = dict(worst_run(sc.type, runs))
+            rec["fingerprint"] = fp
+            rec["repeats"] = [{k: r["live"][k] for k in ("band", "max_score", "reasons", "e2e_ms", "stimulus")}
+                              | {"run_at": r["run_at"]} for r in runs]
+            records[sc.id] = rec
             save_records(records, order, runs_path)           # keep progress if a later run fails
-            time.sleep(settle_s)
     finally:
         browser.close(neutral)
     return records
@@ -995,6 +1053,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--results", type=Path, default=RESULTS_DIR, help="output directory")
     p.add_argument("--anydesk", help="path to AnyDesk.exe (default: standard install locations)")
     p.add_argument("--settle", type=float, default=3.0, help="seconds between scenarios")
+    p.add_argument("--repeat", type=int, default=1, help="live runs per scenario (the report row is the worst run)")
+    p.add_argument("--report", action="store_true", help="rewrite scenarios.md/.csv from recorded runs, run nothing")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     if hasattr(sys.stdout, "reconfigure"):
@@ -1014,6 +1074,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         return dry_run(scenarios, anydesk)
+    if args.report:
+        records = load_records(args.results / RUNS_FILE)
+        if not records:
+            print(f"no recorded runs in {args.results / RUNS_FILE}")
+            return 1
+        rows, summary = write_reports(records, order, args.results, cfg)
+        print_rows(rows, summary)
+        print(f"written: {args.results / 'scenarios.md'}, {args.results / 'scenarios.csv'}")
+        return 0
     if args.replay or args.compare:
         records = load_records(args.results / RUNS_FILE)
         records = {i: r for i, r in records.items() if i in {s.id for s in scenarios}}
@@ -1043,9 +1112,10 @@ def main(argv: list[str] | None = None) -> int:
         print("live scenario runs need Windows (screen capture, WASAPI loopback, SAPI)")
         return 1
     n = len(scenarios)
-    print(f"running {n} scenario(s) live, about {sum(s.duration_s + 6 for s in scenarios) / 60:.0f} min. "
+    print(f"running {n} scenario(s) x{max(1, args.repeat)} live, "
+          f"about {max(1, args.repeat) * sum(s.duration_s + 6 for s in scenarios) / 60:.0f} min. "
           f"The desktop and speakers are in use; keep the PC idle.", flush=True)
-    records = run_live(scenarios, cfg, args.results, order, anydesk, args.settle)
+    records = run_live(scenarios, cfg, args.results, order, anydesk, args.settle, max(1, args.repeat))
     rows, summary = write_reports(records, order, args.results, cfg)
     print_rows(rows, summary)
     print(f"written: {args.results / 'scenarios.md'}, {args.results / 'scenarios.csv'}, {args.results / RUNS_FILE}")

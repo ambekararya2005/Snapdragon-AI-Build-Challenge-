@@ -50,11 +50,11 @@ labels:
 
   otp_card:
     groups:
-      otp_entry:           # an OTP is being asked for
+      otp_entry:           # an OTP / UPI PIN is being asked for (an entry prompt, not a mention)
         weight: 0.5
         max_hits: 2
         terms: [enter otp, otp sent, otp has been sent, resend otp, enter verification code,
-                enter the otp, otp received]
+                enter the otp, otp received, enter upi pin, enter your upi pin, enter mpin, enter your mpin]
       otp_mention:         # "OTP" merely mentioned (also in advice/news: "never share OTP")
         weight: 0.3
         max_hits: 1
@@ -104,7 +104,8 @@ bank_disclaimer:
           fraudulent calls, phishing, regulated by rbi, regulated by the reserve bank, dicgc,
           deposit insurance, grievance redressal, report fraud, report unauthorised transaction,
           report unauthorized transaction, cybercrime.gov.in, national cyber crime helpline,
-          safe banking tips, security tips]
+          safe banking tips, security tips,
+          never need to enter, never need your pin, pin is not required, not required to receive]
 
 # News / article context: reduces fake_alert and the threat tactic (screen_classifier.news_factor).
 news:

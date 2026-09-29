@@ -28,7 +28,8 @@ reporting:        # third-person / news / advisory language: same sentence -> we
        in this video, beware, warned, warns, warning to citizens, citizens, advisory, awareness,
        pretend to be, pretending to be, posing as, posed as, impersonating, duped, lost rs, lakh rupees,
        headlines, news, complaint was filed, how to stay safe, never asks, never ask, will never ask,
-       will ever ask, does not ask, do not fall, report it, helpline, if you receive]
+       will ever ask, does not ask, do not fall, report it, helpline, if you receive,
+       never need to enter, never need a pin, pin is not required, not required to receive]
   hi_latn: [thag, thagon, dhokhebaaz, thagi, khabar]
   hi_deva: []
 
@@ -245,6 +246,15 @@ entries:
      patterns: {en: [share the otp, share otp, share your otp, tell me the otp, read the otp, read out the otp,
                      share your pin, tell me your pin, tell me your cvv],
                 hi_latn: [otp batao, otp bataiye, otp share karo, otp bolo], hi_deva: []}}
+  # UPI collect-request scam: receiving money never needs a PIN, so being told to enter one to RECEIVE is
+  # the tell. Genuine apps' tip ("you never need to enter your PIN to receive money") is damped by the
+  # screen disclaimer terms (screen.yaml bank_disclaimer) and the call reporting terms above.
+  - {id: money_pin_to_receive, tactic: money_move, weight: 0.5,
+     patterns: {en: [pin to receive, pin to get the money, pin to get your money, approve the request to receive,
+                     accept the request to receive, approve the collect request, accept the collect request],
+                hi_latn: [receive karne ke liye pin, paise lene ke liye pin, paisa lene ke liye pin,
+                          pin daalo paise aa jayenge, pin dalo paise aa jayenge, pin daalo paisa aa jayega,
+                          pin dalo paisa aa jayega, pin daaliye paise aa jayenge], hi_deva: []}}
   # Remote access alone is weak on purpose: genuine IT support uses AnyDesk too. The remote_tool
   # fusion signal already covers the tool itself.
   - {id: money_remote_access, tactic: money_move, weight: 0.15, where: [call],

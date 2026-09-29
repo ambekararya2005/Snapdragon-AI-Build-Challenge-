@@ -10,7 +10,9 @@ from bench import scenarios as S
 from fusion.risk import RemoteToolSignal
 from kavach_config import load_config
 
-CFG = load_config(env={}).to_dict()
+# Pinned call weights (the pre-tuning 10/40), so these numbers don't move when config.yaml is re-tuned.
+CFG = S.deep_merge(load_config(env={}).to_dict(),
+                   {"fusion": {"signals": {"call_tactic": {"weight": 10, "decay_s": 180, "cap": 40}}}})
 
 
 def _label(tactics=(), **labels):
@@ -36,7 +38,7 @@ def test_spec_has_ten_scam_and_ten_normal_with_existing_assets():
         assert s.page_path is None or s.page_path.is_file()
         assert s.call_path is None or S.script_lines(s.call_path)
         assert s.type == "normal" or s.expected in ("alert", "caution")
-        assert s.type == "scam" or s.expected == "quiet"
+        assert s.type == "scam" or s.expected in ("quiet", "caution")
 
 
 def test_demo_pages_are_labelled_demo_and_have_unique_titles():
@@ -159,7 +161,8 @@ def test_is_ok_and_summary_targets():
     assert S.is_ok("normal", "quiet", "quiet") and not S.is_ok("normal", "quiet", "caution")
     rows = [_row(f"s{i}", "scam", "alert", "alert", e2e=1000.0 * (i + 1), dec=500.0) for i in range(9)]
     rows.append(_row("s9", "scam", "alert", "quiet"))
-    rows += [_row(f"n{i}", "normal", "quiet", "quiet") for i in range(9)] + [_row("n9", "normal", "quiet", "caution")]
+    rows += [_row(f"n{i}", "normal", "quiet", "quiet") for i in range(8)] + [_row("n9", "normal", "quiet", "caution")]
+    rows.append(_row("n8", "normal", "caution", "caution"))                # by design: not a false alarm
     s = S.summarize(rows)
     assert s["scam_caught_pct"] == 90.0 and s["pass_caught"]
     assert (s["normal_alerts"], s["normal_cautions"]) == (0, 1) and s["pass_false_alarms"]
@@ -178,7 +181,7 @@ def test_reports_and_compare_are_written(tmp_path):
     assert rows[0]["outcome"] == "quiet" and not rows[0]["ok"]
     md = (tmp_path / "scenarios.md").read_text(encoding="utf-8")
     assert "scam caught" in md and "kyc_call_no_page" in md and "MISS" in md
-    assert (tmp_path / "scenarios.csv").read_text(encoding="utf-8").splitlines()[0].startswith("id,type,expected,outcome")
+    assert (tmp_path / "scenarios.csv").read_text(encoding="utf-8").splitlines()[0].startswith("id,source,type,expected,outcome")
     tuned = {**CFG, "fusion": {**CFG["fusion"], "signals": {**CFG["fusion"]["signals"],
                                                             "call_tactic": {"weight": 12, "decay_s": 180, "cap": 60}}}}
     sb, sa, lines = S.compare({rec["id"]: rec}, [rec["id"]], CFG, tuned, tmp_path / "tuning.md")
@@ -195,6 +198,26 @@ def test_tuning_overlays_merge_and_validate():
     merged = S.deep_merge(CFG, {"fusion": {"signals": {"call_tactic": {"weight": 13}}}})
     assert merged["fusion"]["signals"]["call_tactic"] == {**CFG["fusion"]["signals"]["call_tactic"], "weight": 13}
     assert CFG["fusion"]["signals"]["call_tactic"]["weight"] == 10          # base untouched
+
+
+def test_report_rows_are_live_only_under_the_same_config_and_list_repeats(tmp_path):
+    sigs = [{"t": 1.0, "ts": 1.0, "stage": "processes", "kind": "remote", "tool": "FakeRemote", "live": True},
+            {"t": 2.0, "ts": 2.0, "stage": "screen", "kind": "screen", "labels": {"bank": 0.9, "otp_card": 0.8}, "tactics": []}]
+    base = {**_record(sigs, type_="normal", expected="caution", duration=10.0), "run_at": "2026-09-29 12:00",
+            "remote": "anydesk_idle", "remote_used": "fake", "notes": ["AnyDesk not installed: fake tool stands in"]}
+    live = S.replay(base, CFG)
+    assert (live.band, live.max_score) == ("caution", 69)                 # remote + bank + OTP, no tactic: gate
+    runs = [{**base, "live": {**S.asdict(live), "band": b, "max_score": m}} for b, m in (("quiet", 45), ("caution", 69))]
+    worst = S.worst_run("normal", runs)
+    assert worst["live"]["band"] == "caution"
+    rec = {**worst, "fingerprint": S.config_fingerprint(CFG),
+           "repeats": [{"band": r["live"]["band"], "max_score": r["live"]["max_score"]} for r in runs]}
+    rows, summary = S.write_reports({"x": rec}, ["x"], tmp_path, CFG)
+    assert rows[0]["source"] == "live" and rows[0]["ok"] and summary["normal_cautions"] == 0   # caution by design
+    assert rows[0]["notes"].startswith(S.ANYDESK_NOTE) and "2 live runs (row = worst): quiet 45, caution 69" in rows[0]["notes"]
+    other = S.deep_merge(CFG, {"fusion": {"bands": {"caution": 70, "alert": 90}}})
+    rows, _ = S.write_reports({"x": rec}, ["x"], tmp_path, other)
+    assert rows[0]["source"] == "replay" and rows[0]["outcome"] == "quiet" and "live runs" not in rows[0]["notes"]
 
 
 def test_records_roundtrip_in_spec_order(tmp_path):

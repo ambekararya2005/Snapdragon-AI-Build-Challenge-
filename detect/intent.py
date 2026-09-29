@@ -13,8 +13,10 @@ letters joined ("c b i" -> cbi) and explicit ASR spellings in the lexicon ("see 
 
 Context guard, per sentence: second-person address ("you", "aapka") multiplies the matched entries by
 intent.second_person_boost; reporting/news/advisory language ("scammers", "police said", "beware")
-multiplies them by intent.reporting_factor. Decisions are recorded in evidence as
-guard:second_person:<id> / guard:reporting:<id> (fuzzy hits as fuzzy:<id>).
+multiplies them by intent.reporting_factor. A sentence with neither cue inherits a reporting cue that ended
+within intent.reporting_carry_words words before it (0 = off): ASR splits news sentences and chunk
+boundaries cut them before their cue arrives; a second-person sentence without a cue ends the context. Decisions are recorded in evidence as guard:second_person:<id> /
+guard:reporting:<id> (+ guard:reporting_context:<id> when inherited; fuzzy hits as fuzzy:<id>).
 
 Scoring: each entry counts once, at its best sentence. Tactic score = sum of its entries' values in
 descending order, each further entry multiplied by intent.repeat_decay (1, 0.5, 0.25, ...), capped at
@@ -28,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -39,7 +42,7 @@ from detect.tactic_lexicon import TACTICS, default_canon, load_tactic_lexicon
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULTS = {"lexicon": "detect/lexicons/intent.yaml", "tactic_threshold": 0.5, "fuzzy_threshold": 85,
             "fuzzy_min_len": 8, "second_person_boost": 1.2, "reporting_factor": 0.25, "repeat_decay": 0.5,
-            "max_sentence_words": 30}
+            "max_sentence_words": 30, "reporting_carry_words": 30}
 _SENT_END = re.compile(r"(?<=[.!?।])\s+|\n+")
 
 
@@ -127,13 +130,28 @@ def detect(transcript_window: Any, config: Mapping | None = None) -> IntentResul
     tactic_of: dict[str, str] = {}
     ts: dict[str, list[float]] = {}                     # entry id -> timestamps of its sentences
     evidence: set[str] = set()
+    carry_words = int(cfg["reporting_carry_words"])
+    since_cue: float = math.inf                         # words since the end of the last sentence with a cue
     for text, a, b in sentences(segments_of(transcript_window), int(cfg["max_sentence_words"])):
         c = default_canon(text)
+        second = bool(lex.has_any(lex.second_person, c))
+        own_reporting = bool(lex.has_any(lex.reporting, c))
+        # Reporting context: ASR splits news sentences ("... police said ... safe account. For verification.")
+        # and a chunk boundary cuts one before its cue ("officials say") is transcribed. A sentence with no
+        # cue of its own and no second-person address inherits a cue that ended within carry_words words
+        # before it. A sentence addressing "you" without a cue ends the context (a caller talking to the listener).
+        inherited = carry_words > 0 and not own_reporting and not second and since_cue <= carry_words
+        n_words = len(c.split())
+        if own_reporting:
+            since_cue = 0
+        elif second:
+            since_cue = math.inf
+        else:
+            since_cue += n_words
         matches = lex.match(c)
         if not matches:
             continue
-        second = bool(lex.has_any(lex.second_person, c))
-        reporting = bool(lex.has_any(lex.reporting, c))
+        reporting = own_reporting or inherited
         factor = (boost if second else 1.0) * (reduce_ if reporting else 1.0)
         for m in matches:
             eid = m.entry.id
@@ -145,6 +163,8 @@ def detect(transcript_window: Any, config: Mapping | None = None) -> IntentResul
                 evidence.add(f"guard:second_person:{eid}")
             if reporting:
                 evidence.add(f"guard:reporting:{eid}")
+            if inherited:
+                evidence.add(f"guard:reporting_context:{eid}")
             if m.fuzzy:
                 evidence.add(f"fuzzy:{eid}")
 

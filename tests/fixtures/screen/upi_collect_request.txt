@@ -1,0 +1,11 @@
+TITLE: DEMO – NOT A REAL UPI APP – Collect request - Google Chrome
+DEMO-NOT A REAL UPI APP·Kavach test page imitating a UPI collect-request scam
+DemoPay UPI
+Collect request
+From: Rohan S (rohan.buyer@demoupi)
+₹ 15,000.00
+Remarks: Advance for sofa, army payment
+Enter UPI PIN to receive money. Request expires in 10 minutes.
+Enter UPI PIN
+Decline  Pay ₹ 15,000
+DEMO – NOT A REAL UPI APP. Static test page for the Kavach scam shield; names and UPI ids are fictional.

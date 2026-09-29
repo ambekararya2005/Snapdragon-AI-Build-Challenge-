@@ -233,3 +233,19 @@ def test_format_label_has_no_text():
     body, window = load("bank_transfer")
     line = C.format_label(C.classify(body, window))
     assert line.startswith("top=") and "Rahul" not in line
+
+
+# ---------------------------------------------------------------- UPI collect request (PIN to receive)
+
+def test_upi_collect_request_is_a_pin_prompt_with_a_money_move_tactic():
+    r = run("upi_collect_request")
+    assert {"upi_payment", "otp_card"} <= set(r.present)
+    assert "otp_card:otp_entry:enter_upi_pin" in r.evidence
+    assert "money_move" in r.screen_tactics and "tactic:money_move:money_pin_to_receive" in r.evidence
+
+
+def test_genuine_upi_tip_about_pins_is_damped():
+    text = "DemoPay UPI\nPay to: shop@demoupi\nTip: you never need to enter your UPI PIN to receive money.\nEnter UPI PIN"
+    r = C.classify(text, {"title": "DemoPay - Pay", "process_name": "chrome.exe"})
+    assert "money_move" not in r.screen_tactics
+    assert "damped:tactic:money_move:money_pin_to_receive" in r.evidence

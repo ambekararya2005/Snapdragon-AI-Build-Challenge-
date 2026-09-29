@@ -45,7 +45,7 @@ def test_fusion_values():
     assert (s.otp_card.weight, s.otp_card.decay_s, s.otp_card.cap) == (20, 120, 20)
     assert (s.screen_tactic.weight, s.screen_tactic.decay_s, s.screen_tactic.cap) == (15, 120, 30)
     assert (s.fake_alert_label.weight, s.fake_alert_label.decay_s, s.fake_alert_label.cap) == (20, 120, 20)
-    assert (s.call_tactic.weight, s.call_tactic.decay_s, s.call_tactic.cap) == (10, 180, 40)
+    assert (s.call_tactic.weight, s.call_tactic.decay_s, s.call_tactic.cap) == (13, 180, 65)
     assert (s.combo_bonus.weight, s.combo_bonus.cap) == (20, 20)
     f = load_config(env={}).fusion
     assert (f.bands.caution, f.bands.alert) == (50, 70)
