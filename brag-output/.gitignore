@@ -1,0 +1,10 @@
+# brag build intermediates (re-created by work/build.sh)
+work/assets/
+work/*.wav
+work/*.mp4
+work/*.png
+work/*.json
+work/*.log
+work/stills*/
+work/check/
+work/poster/

@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kavach brag</title>
+<style>
+@font-face { font-family: "NotoDeva"; src: url("../assets/NotoSansDevanagari.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+:root {
+  --navy: #0F172A; --card: #1E293B; --fg: #F8FAFC; --muted: #94A3B8; --grid: #334155;
+  --quiet: #22C55E; --caution: #F59E0B; --alert: #EF4444; --ovl: #7A0000; --toast: #FFD54A;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1350px; overflow: hidden; background: #000; }
+body { font-family: "Inter", "NotoDeva", sans-serif; color: var(--fg); -webkit-font-smoothing: antialiased; }
+.deva { font-family: "NotoDeva", sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: var(--navy); }
+.abs { position: absolute; }
+.scene { position: absolute; inset: 0; opacity: 0; will-change: opacity, transform; }
+.display { font-family: "Inter Display", "Inter", "NotoDeva", sans-serif; }
+
+/* 1 hook */
+#s1 { background: radial-gradient(120% 80% at 50% 45%, #1a0303 0%, #000 70%); }
+#s1 .pill { left: 90px; top: 150px; display: flex; align-items: center; gap: 18px; padding: 16px 28px; border-radius: 999px;
+  background: #160404; border: 2px solid #3b0b0b; font-size: 32px; font-weight: 600; color: #fca5a5; }
+#s1 .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--alert); }
+#s1 .timer { color: #f87171; font-variant-numeric: tabular-nums; }
+#s1 .lines { left: 90px; top: 360px; width: 920px; }
+#s1 .line { font-size: 104px; line-height: 1.04; font-weight: 800; letter-spacing: -3px; margin-bottom: 34px; }
+#s1 .w { display: inline-block; opacity: 0; margin-right: 0.22em; }
+#s1 .red { color: var(--alert); }
+#s1 .label { left: 90px; top: 280px; font-size: 26px; font-weight: 600; letter-spacing: 4px; color: #7f1d1d; text-transform: uppercase; }
+#wave { left: 90px; right: 90px; bottom: 120px; height: 150px; display: flex; align-items: center; gap: 9px; }
+#wave i { flex: 1; background: #ef4444; border-radius: 6px; opacity: .75; }
+
+/* shield */
+.shield path.outline { fill: none; stroke: #F8FAFC; stroke-width: 7; stroke-linejoin: round; }
+
+/* 2 reveal */
+#s2 { background: radial-gradient(90% 60% at 50% 30%, #1E293B 0%, #0F172A 70%); }
+#s2 .shield { left: 390px; top: 170px; width: 300px; height: 340px; }
+#s2 .title { left: 0; right: 0; top: 560px; text-align: center; white-space: nowrap; }
+#s2 .title .en { font-size: 190px; font-weight: 900; letter-spacing: -7px; }
+#s2 .title .hi { font-size: 128px; font-weight: 800; color: #fca5a5; margin-left: 26px; position: relative; top: 4px; }
+#s2 .sub { left: 90px; right: 90px; top: 830px; text-align: center; font-size: 56px; font-weight: 700; line-height: 1.18; letter-spacing: -1px; }
+#s2 .chips { left: 0; right: 0; top: 1040px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.chip { display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px; border-radius: 999px; background: var(--card);
+  border: 2px solid var(--grid); font-size: 34px; font-weight: 700; }
+.chip.amber { background: #3a2a07; border-color: #92400e; color: #fde68a; }
+
+/* 3 demo + 4 overlay share the laptop */
+#s3 { background: var(--navy); }
+#s3 .head { left: 40px; right: 40px; top: 58px; text-align: center; font-size: 50px; font-weight: 800; letter-spacing: -1.2px; }
+#laptop { left: 40px; top: 152px; width: 1000px; height: 588px; border-radius: 22px; background: #1E293B; border: 2px solid #334155;
+  padding: 12px; opacity: 0; transform-origin: 50% 50%; }
+#screen { position: relative; width: 100%; height: 100%; border-radius: 12px; overflow: hidden; background: #eef2f7; }
+#chrome { position: absolute; left: 0; right: 0; top: 0; height: 34px; background: #dfe5ee; display: flex; align-items: center; gap: 8px; padding-left: 14px; }
+#chrome i { width: 12px; height: 12px; border-radius: 50%; background: #b7c0cc; display: block; }
+#chrome span { margin-left: 18px; font-size: 15px; color: #475569; background: #fff; padding: 4px 14px; border-radius: 8px; font-weight: 600; }
+#bank { position: absolute; left: 0; top: 34px; width: 1280px; height: 694px; border: 0; transform-origin: 0 0; transform: scale(0.7625); background: #eef2f7; }
+#anydesk { right: 18px; top: 50px; display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-radius: 12px; background: #111827;
+  color: #fff; font-size: 24px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.35); opacity: 0; }
+#anydesk .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--alert); }
+#toast { right: 16px; bottom: 16px; width: 420px; border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.35); opacity: 0; }
+#ovl1, #ovl2 { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+#callbub { left: 40px; top: 372px; width: 640px; padding: 22px 28px 24px; border-radius: 22px; background: #111827; border: 2px solid #ef4444;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45); opacity: 0; }
+#callbub .lab { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: #fca5a5; text-transform: uppercase; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
+#callbub .lab b { width: 12px; height: 12px; border-radius: 50%; background: var(--alert); display: inline-block; }
+#callbub .txt { font-size: 36px; font-weight: 700; line-height: 1.22; }
+#callbub .w { opacity: 0; }
+
+#dash { left: 40px; top: 768px; width: 1000px; height: 540px; border-radius: 24px; background: var(--card); border: 2px solid var(--grid); opacity: 0; }
+#dash .top { position: absolute; left: 34px; right: 34px; top: 26px; display: flex; justify-content: space-between; align-items: center; }
+#dash .top .t { font-size: 30px; font-weight: 800; }
+#dash .top .net { font-size: 22px; font-weight: 700; color: var(--quiet); display: flex; gap: 10px; align-items: center; }
+#dash .top .net b { width: 12px; height: 12px; border-radius: 50%; background: var(--quiet); display: inline-block; }
+#gauge { position: absolute; left: 28px; top: 92px; width: 330px; height: 330px; }
+#gnote { position: absolute; left: 28px; width: 330px; top: 432px; text-align: center; font-size: 25px; font-weight: 600; color: var(--muted); line-height: 1.25; }
+#rows { position: absolute; left: 388px; right: 30px; top: 96px; display: flex; flex-direction: column; gap: 18px; }
+.row { position: relative; height: 126px; border-radius: 18px; background: #0F172A; border: 2px solid #334155; padding: 20px 24px 0 92px; }
+.row .ic { position: absolute; left: 22px; top: 30px; width: 52px; height: 52px; border-radius: 14px; background: #334155; display: grid; place-items: center; }
+.row .ic svg { width: 30px; height: 30px; stroke: #94A3B8; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.row .n { font-size: 30px; font-weight: 800; }
+.row .d { font-size: 25px; font-weight: 500; color: var(--muted); margin-top: 6px; }
+.row .pts { position: absolute; right: 22px; top: 36px; font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+#s4bg { position: absolute; inset: 0; opacity: 0; background: radial-gradient(110% 70% at 50% 35%, #8a0a0a 0%, #3D0000 75%); }
+#cap { left: 60px; right: 60px; top: 936px; text-align: center; }
+#cap .c { position: absolute; left: 0; right: 0; opacity: 0; }
+#cap .big { font-size: 58px; font-weight: 800; line-height: 1.14; letter-spacing: -1.2px; }
+#cap .small { font-size: 40px; font-weight: 600; line-height: 1.25; color: #fecaca; }
+#frozen { left: 0; right: 0; top: 846px; display: flex; justify-content: center; opacity: 0; }
+#frozen .chip { background: #0b2540; border-color: #60a5fa; color: #dbeafe; }
+#cursor { left: 0; top: 0; width: 46px; height: 60px; opacity: 0; transform-origin: 6px 4px; }
+#ripple { left: 0; top: 0; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 5px solid #fff; opacity: 0; }
+
+/* 5 sprint */
+#s5 { background: var(--navy); }
+#log { left: 60px; right: 0; top: 0; font-family: "JetBrains Mono", monospace; font-size: 27px; line-height: 50px; color: #64748b; opacity: .13; white-space: nowrap; }
+#log .h { color: #F59E0B; }
+#s5 .big { left: 80px; top: 300px; font-size: 150px; font-weight: 900; letter-spacing: -6px; line-height: 1.0; }
+#s5 .big div { opacity: 0; }
+#s5 .acc { color: var(--quiet); }
+#counters { left: 80px; right: 80px; top: 760px; display: flex; gap: 26px; }
+.ctr { flex: 1; border-radius: 24px; background: rgba(30,41,59,.92); border: 2px solid var(--grid); padding: 34px 28px 30px; opacity: 0; }
+.ctr .num { font-size: 104px; font-weight: 900; letter-spacing: -4px; font-variant-numeric: tabular-nums; line-height: 1; }
+.ctr .lbl { font-size: 30px; font-weight: 600; color: var(--muted); margin-top: 14px; line-height: 1.2; }
+
+/* 6 results */
+#s6 { background: radial-gradient(100% 60% at 50% 0%, #1E293B 0%, #0F172A 65%); }
+#s6 .head { left: 70px; top: 96px; font-size: 76px; font-weight: 900; letter-spacing: -2.5px; opacity: 0; }
+#grid { left: 50px; right: 50px; top: 250px; display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.card { height: 460px; border-radius: 28px; background: var(--card); border: 2px solid var(--grid); padding: 40px 34px; opacity: 0; position: relative; }
+.card .num { font-size: 150px; font-weight: 900; letter-spacing: -6px; line-height: 1; }
+.card .lbl { font-size: 40px; font-weight: 700; line-height: 1.16; margin-top: 26px; letter-spacing: -0.5px; }
+.card .sub { position: absolute; left: 34px; right: 30px; bottom: 32px; font-size: 22px; font-weight: 500; color: var(--muted); line-height: 1.3; }
+
+/* 7 outro */
+#s7 { background: radial-gradient(90% 60% at 50% 38%, #3a0b0b 0%, #0F172A 70%); }
+#s7 .shield { left: 420px; top: 210px; width: 240px; height: 272px; }
+#s7 .title { left: 0; right: 0; top: 520px; text-align: center; white-space: nowrap; }
+#s7 .title .en { font-size: 170px; font-weight: 900; letter-spacing: -6px; }
+#s7 .title .hi { font-size: 116px; font-weight: 800; color: #fca5a5; margin-left: 24px; position: relative; top: 4px; }
+#s7 .tag { left: 60px; right: 60px; top: 780px; text-align: center; font-size: 60px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.2; }
+#s7 .cta { left: 0; right: 0; top: 1060px; display: flex; justify-content: center; }
+#s7 .cta .chip { font-size: 40px; padding: 22px 40px; background: #F8FAFC; color: #0F172A; border-color: #F8FAFC; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1 hook -->
+  <div class="scene" id="s1">
+    <div class="abs pill"><span class="dot" id="s1dot"></span><span>Unknown caller</span><span class="timer" id="s1timer">00:07</span></div>
+    <div class="abs lines">
+      <div class="line" id="l1"><span class="w">This</span><span class="w">is</span><span class="w">the</span><span class="w">CBI.</span></div>
+      <div class="line" id="l2"><span class="w">Don't</span><span class="w">disconnect</span><span class="w">the</span><span class="w">call.</span></div>
+      <div class="line red" id="l3"><span class="w">Install</span><span class="w">AnyDesk.</span></div>
+    </div>
+    <div class="abs" id="wave"></div>
+  </div>
+
+  <!-- 2 reveal -->
+  <div class="scene" id="s2">
+    <svg class="abs shield" id="sh2" viewBox="0 0 300 340"></svg>
+    <div class="abs title display"><span class="en">Kavach</span><span class="hi deva">कवच</span></div>
+    <div class="abs sub" id="s2sub">An offline AI scam shield<br>for Windows PCs</div>
+    <div class="abs chips">
+      <span class="chip amber" id="s2c1">Built solo in 2 days</span>
+      <span class="chip" id="s2c2">Snapdragon AI Build &amp; Present Challenge</span>
+    </div>
+  </div>
+
+  <!-- 3 + 4: demo, warning, freeze -->
+  <div class="scene" id="s3">
+    <div id="s4bg"></div>
+    <div class="abs head" id="s3head">It watches all 3 parts of the scam</div>
+
+    <div class="abs" id="laptop">
+      <div id="screen">
+        <div id="chrome"><i></i><i></i><i></i><span>DEMO – NOT A REAL BANK – Transfer funds</span></div>
+        <iframe id="bank" src="../assets/mock_bank_transfer.html" scrolling="no"></iframe>
+        <div class="abs" id="anydesk"><span class="dot"></span>AnyDesk · session live</div>
+        <img class="abs" id="toast" src="../assets/caution.png" alt="">
+        <img id="ovl1" src="../assets/overlay.png" alt="">
+        <img id="ovl2" src="../assets/overlay_help.png" alt="">
+        <div id="flash"></div>
+      </div>
+    </div>
+
+    <div class="abs" id="callbub">
+      <div class="lab"><b></b>On the call</div>
+      <div class="txt" id="calltxt"></div>
+    </div>
+
+    <div class="abs" id="dash">
+      <div class="top"><span class="t">Kavach — live</span><span class="net"><b></b>Network connections: 0</span></div>
+      <svg id="gauge" viewBox="0 0 330 330"></svg>
+      <div id="gnote"></div>
+      <div id="rows">
+        <div class="row" id="r1">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+          <div class="n">Screen</div><div class="d">Banking page + OTP field</div><div class="pts" id="p1">+45</div>
+        </div>
+        <div class="row" id="r2">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M8 12a4 4 0 0 1 8 0"/><circle cx="12" cy="16" r="2"/></svg></div>
+          <div class="n">Remote access</div><div class="d">AnyDesk session is live</div><div class="pts" id="p2">+30</div>
+        </div>
+        <div class="row" id="r3">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></div>
+          <div class="n">Call</div><div class="d">Authority + threat tactics</div><div class="pts" id="p3">+26</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="abs" id="frozen"><span class="chip">❄&nbsp; AnyDesk paused · scammer locked out</span></div>
+    <div class="abs" id="cap">
+      <div class="c big" id="cap1">A full-screen warning,<br>in Hindi and English</div>
+      <div class="c big" id="cap2">One click freezes the<br>scammer's remote session</div>
+      <div class="c small" id="cap3" style="top: 168px">Tested with real AnyDesk from my phone.<br>The phone froze.</div>
+    </div>
+    <svg class="abs" id="cursor" viewBox="0 0 46 60"><path d="M4 3 L4 48 L15 37 L23 56 L31 52 L23 34 L39 34 Z" fill="#fff" stroke="#000" stroke-width="3" stroke-linejoin="round"/></svg>
+    <div class="abs" id="ripple"></div>
+  </div>
+
+  <!-- 5 sprint -->
+  <div class="scene" id="s5">
+    <div class="abs" id="log"></div>
+    <div class="abs big"><div id="b1">Built solo.</div><div id="b2" class="acc">In 2 days.</div></div>
+    <div class="abs" id="counters">
+      <div class="ctr" id="c1"><div class="num" data-to="23">0</div><div class="lbl">commits</div></div>
+      <div class="ctr" id="c2"><div class="num" data-to="362">0</div><div class="lbl">tests</div></div>
+      <div class="ctr" id="c3"><div class="num" data-to="20">0</div><div class="lbl">end-to-end scenarios</div></div>
+    </div>
+  </div>
+
+  <!-- 6 results -->
+  <div class="scene" id="s6">
+    <div class="abs head" id="s6head">The results</div>
+    <div class="abs" id="grid">
+      <div class="card" id="k1"><div class="num" style="color:var(--quiet)">10/10</div><div class="lbl">scam scenarios caught</div>
+        <div class="sub">digital arrest · fake KYC · tech support · UPI collect · more</div></div>
+      <div class="card" id="k2"><div class="num" style="color:var(--quiet)">0</div><div class="lbl">false alarms in 10 normal scenarios</div>
+        <div class="sub">net banking · real IT help · scam news</div></div>
+      <div class="card" id="k3"><div class="num" style="color:var(--caution)">~2 s</div><div class="lbl">from scam phrase to warning</div>
+        <div class="sub">median, end to end</div></div>
+      <div class="card" id="k4"><div class="num" style="color:#60A5FA">6×</div><div class="lbl">faster speech AI on the Snapdragon NPU</div>
+        <div class="sub">Whisper: 117 ms vs 723 ms on CPU per 5 s of audio · AI Hub profile</div></div>
+    </div>
+  </div>
+
+  <!-- 7 outro -->
+  <div class="scene" id="s7">
+    <svg class="abs shield" id="sh7" viewBox="0 0 300 340"></svg>
+    <div class="abs title display" id="s7title"><span class="en">Kavach</span><span class="hi deva">कवच</span></div>
+    <div class="abs tag" id="s7tag">Offline. On-device.<br>Nothing leaves your PC.</div>
+    <div class="abs cta" id="s7cta"><span class="chip">Code in the comments ↓</span></div>
+  </div>
+
+  <div id="fade"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const p = (t, s, d) => clamp((t - s) / d);
+const eo = (k) => 1 - Math.pow(1 - k, 3);
+const eio = (k) => (k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const back = (k) => { const c1 = 1.6, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+
+// scene window: fade/scale in at start, out at end (stagger: out, then in)
+function win(el, t, s, e, opts = {}) {
+  const inD = opts.inD ?? 0.32, outD = opts.outD ?? 0.24;
+  if (t < s || t >= e) { el.style.opacity = 0; el.style.visibility = 'hidden'; return 0; }
+  el.style.visibility = 'visible';
+  const a = eo(p(t, s, inD)) * (1 - eio(p(t, e - outD, outD)));
+  el.style.opacity = a;
+  const sIn = lerp(opts.fromScale ?? 1.04, 1, eo(p(t, s, inD + .2)));
+  const sOut = lerp(1, opts.toScale ?? 0.97, eio(p(t, e - outD, outD)));
+  el.style.transform = `scale(${sIn * sOut})`;
+  return a;
+}
+// element pop-in: fade + rise
+function pop(el, t, s, d = 0.35, dy = 30, sc = 1) {
+  const k = p(t, s, d);
+  el.style.opacity = eo(k);
+  el.style.transform = `translateY(${(1 - back(k)) * dy}px) scale(${lerp(sc, 1, back(k))})`;
+  return k;
+}
+
+// ---------- shield ----------
+const SHIELD = 'M150 14 L272 58 C272 170 236 262 150 326 C64 262 28 170 28 58 Z';
+function buildShield(svg, id) {
+  svg.innerHTML = `<defs><linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EF4444"/><stop offset="1" stop-color="#7A0000"/></linearGradient></defs>
+  <path class="fill" d="${SHIELD}" fill="url(#g${id})" opacity="0"/>
+  <path class="outline" d="${SHIELD}"/>
+  <text class="glyph" x="150" y="215" text-anchor="middle" font-family="NotoDeva" font-weight="800" font-size="150" fill="#fff" opacity="0">क</text>`;
+}
+function drawShield(svg, k) { // k: 0..1 progress
+  const o = svg.querySelector('.outline'), len = 900;
+  o.style.strokeDasharray = len; o.style.strokeDashoffset = len * (1 - eio(clamp(k / .55)));
+  svg.querySelector('.fill').setAttribute('opacity', eo(clamp((k - .4) / .35)));
+  const g = svg.querySelector('.glyph'), gk = clamp((k - .6) / .4);
+  g.setAttribute('opacity', eo(gk));
+  g.setAttribute('transform', `translate(150 160) scale(${lerp(.6, 1, back(gk))}) translate(-150 -160)`);
+}
+buildShield($('sh2'), 2); buildShield($('sh7'), 7);
+
+// ---------- hook waveform ----------
+const NB = 44; for (let i = 0; i < NB; i++) $('wave').appendChild(document.createElement('i'));
+const SPEECH = [[0.12, 0.95], [1.12, 2.0], [2.12, 2.9]];
+function speaking(t) { let a = 0.06; for (const [s, e] of SPEECH) a = Math.max(a, p(t, s, .08) * (1 - p(t, e - .1, .15))); return a; }
+
+// ---------- gauge ----------
+const GC = 165, GR = 128;
+function arc(v) {
+  const a0 = 135 * Math.PI / 180, a1 = (135 + 270 * v / 100) * Math.PI / 180;
+  const x0 = GC + GR * Math.cos(a0), y0 = GC + GR * Math.sin(a0), x1 = GC + GR * Math.cos(a1), y1 = GC + GR * Math.sin(a1);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${GR} ${GR} 0 ${270 * v / 100 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+$('gauge').innerHTML = `<path d="${arc(100)}" stroke="#334155" stroke-width="30" fill="none" stroke-linecap="round"/>
+  <path id="garc" d="" stroke="#22C55E" stroke-width="30" fill="none" stroke-linecap="round"/>
+  <text x="165" y="104" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="22" font-weight="700" letter-spacing="3">RISK</text>
+  <text id="gnum" x="165" y="204" text-anchor="middle" fill="#F8FAFC" font-family="Inter" font-size="112" font-weight="900" letter-spacing="-4">0</text>
+  <text id="gband" x="165" y="256" text-anchor="middle" fill="#22C55E" font-family="Inter" font-size="32" font-weight="800" letter-spacing="3">QUIET</text>`;
+function scoreAt(t) {
+  let s = 0;
+  s = lerp(s, 45, eio(p(t, 8.5, 0.8)));
+  s = lerp(s, 69, eio(p(t, 10.5, 0.6)));
+  s = lerp(s, 100, eio(p(t, 13.5, 0.9)));
+  return Math.round(s);
+}
+const band = (s) => (s >= 70 ? ['ALERT', '#EF4444'] : s >= 50 ? ['CAUTION', '#F59E0B'] : ['QUIET', '#22C55E']);
+
+// ---------- call bubble words ----------
+const CALL = "“This is the CBI. You are under digital arrest.”".split(' ');
+$('calltxt').innerHTML = CALL.map((w) => `<span class="w">${w} </span>`).join('');
+const callWords = [...$('calltxt').querySelectorAll('.w')];
+
+// ---------- commit log ----------
+const COMMITS = `665b384 snapdragon: AI Hub compiled NPU models, strict QNN config, ARM64 requirements, README
+0fecc1a call_tactic 13/65, UPI PIN-to-receive tell, reporting context guard; 10/10 scams, 0 false alarms
+f4ed653 20-scenario end to end runner tests and demo screens
+565b0e0 dashboard + main: live Kavach window, one-command start, clean shutdown
+b20af18 bilingual alert overlay, caution toast, remote-tool suspend/resume, injected-click guard
+f8cf87e day2: fusion engine, pipeline, tactic gate
+c5542f2 fusion.risk + kavach.pipeline: decaying risk engine, hysteresis/override, incident log
+f0448e2 day 1 completed with fixes
+b2da42e detect.intent: call-transcript scam tactics with shared tactic lexicon; demo scripts
+319fbcb models.asr: Whisper (qai_hub_models) via models.runtime, numpy log-mel/BPE
+5c15c86 capture.audio: WASAPI loopback capture, 16 kHz overlapping chunks, speech gate
+9f741b6 Fixed the screen classifier- no tactics on real bank pages
+bcf2a19 screen classifier: lexicon + validated patterns, news guard
+84ea984 bench.aihub_profile: AI Hub compile/profile/inference for static OCR models
+c19b7c1 Native OCR backend: static det + bucketed rec via models.runtime
+8db02af OCR prep for AI Hub: browser crop, shell-window skip, static shapes
+18ca9ce screen capture and shared privacy redaction
+9a2ddfc process monitor: tray role, cmdline, live events
+4007f06 model runtime and fallback
+21db980 project configuration and dev setup
+e854efa first commit`.split('\n').reverse();
+$('log').innerHTML = [...COMMITS, ...COMMITS, ...COMMITS].map((l) => `<div><span class="h">${l.slice(0, 7)}</span>${l.slice(7)}</div>`).join('');
+
+// ---------- laptop geometry (scene 3 -> scene 4) ----------
+const L3 = { x: 40, y: 152, w: 1000, h: 588 };
+const L4 = { x: 20, y: 205, w: 1040, h: 611 };
+
+function renderAt(t) {
+  // ===== 1 hook 0-4 =====
+  const s1 = $('s1');
+  if (win(s1, t, 0, 4.0, { inD: 0.001, fromScale: 1, toScale: 1.08, outD: 0.28 })) {
+    const sec = 7 + Math.floor(t);
+    $('s1timer').textContent = `00:${String(sec).padStart(2, '0')}`;
+    $('s1dot').style.opacity = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2));
+    const starts = [[0.12, 0.24, 0.36, 0.48], [1.12, 1.26, 1.42, 1.56], [2.12, 2.34]];
+    ['l1', 'l2', 'l3'].forEach((id, li) => {
+      const ws = $(id).querySelectorAll('.w');
+      ws.forEach((w, wi) => { const k = p(t, starts[li][wi], 0.16); w.style.opacity = eo(k); w.style.transform = `translateY(${(1 - eo(k)) * 26}px)`; });
+      const nextStart = li < 2 ? starts[li + 1][0] : 99;
+      $(id).style.opacity = lerp(1, 0.42, eo(p(t, nextStart, 0.3)));
+    });
+    const amp = speaking(t);
+    $('wave').querySelectorAll('i').forEach((b, i) => {
+      const n = Math.abs(Math.sin(i * 1.73 + t * 13.1) * Math.sin(i * 0.61 - t * 7.7) + 0.35 * Math.sin(i * 2.9 + t * 21.3));
+      b.style.height = `${8 + 140 * amp * Math.min(1, n)}px`;
+    });
+  }
+
+  // ===== 2 reveal 4-8 =====
+  if (win($('s2'), t, 4.0, 8.0, { fromScale: 1.0 })) {
+    drawShield($('sh2'), 0.18 + 0.82 * p(t, 4.0, 0.8));
+    pop(document.querySelector('#s2 .title'), t, 4.5, 0.45, 40);
+    pop($('s2sub'), t, 5.0, 0.4, 30);
+    pop($('s2c1'), t, 5.5, 0.35, 24);
+    pop($('s2c2'), t, 5.75, 0.35, 24);
+  }
+
+  // ===== 3 demo 8-16 + 4 warning 16-24 (one continuous scene) =====
+  if (win($('s3'), t, 8.0, 24.0, { fromScale: 1.0 })) {
+    // red background for 4
+    $('s4bg').style.opacity = eo(p(t, 16.0, 0.35));
+    // heading only during demo
+    const hk = pop($('s3head'), t, 8.15, 0.4, 20);
+    if (t >= 15.8) $('s3head').style.opacity = 1 - p(t, 15.8, 0.2);
+
+    // laptop geometry
+    const lk = eio(p(t, 16.0, 0.45));
+    const L = { x: lerp(L3.x, L4.x, lk), y: lerp(L3.y, L4.y, lk), w: lerp(L3.w, L4.w, lk), h: lerp(L3.h, L4.h, lk) };
+    const lap = $('laptop');
+    lap.style.left = L.x + 'px'; lap.style.top = L.y + 'px'; lap.style.width = L.w + 'px'; lap.style.height = L.h + 'px';
+    const lin = p(t, 8.0, 0.45);
+    const shake = t >= 16.0 && t < 16.35 ? Math.sin((t - 16) * 90) * 9 * (1 - p(t, 16, .35)) : 0;
+    lap.style.opacity = eo(lin);
+    lap.style.transform = `translate(${shake}px, ${(1 - eo(lin)) * 40}px)`;
+    lap.style.borderColor = t >= 16 ? '#5b1010' : '#334155';
+    lap.style.background = t >= 16 ? '#2a0606' : '#1E293B';
+    const sw = L.w - 24, sh = L.h - 24; // inner screen size
+    $('bank').style.transform = `scale(${sw / 1280})`;
+
+    // anydesk pill + toast
+    pop($('anydesk'), t, 10.5, 0.35, -18, 0.9);
+    const tk = p(t, 11.0, 0.45);
+    $('toast').style.opacity = eo(tk);
+    $('toast').style.transform = `translateX(${(1 - eo(tk)) * 460}px)`;
+    if (t >= 13.4) $('toast').style.opacity = 1 - p(t, 13.4, 0.25);
+
+    // overlay screenshots
+    $('ovl1').style.opacity = t >= 16.0 ? 1 : 0;
+    $('ovl2').style.opacity = t >= 19.0 ? 1 : 0;
+    $('screen').style.transform = `scale(${1 + 0.025 * (1 - eo(p(t, 19.0, 0.3))) * (t >= 19.0 ? 1 : 0)})`;
+    $('flash').style.opacity = t >= 19.0 ? 0.35 * (1 - p(t, 19.0, 0.15)) : t >= 16.0 ? 0.85 * (1 - p(t, 16.0, 0.22)) : 0;
+
+    // call bubble
+    const cb = $('callbub');
+    pop(cb, t, 12.0, 0.35, 30);
+    if (t >= 15.75) cb.style.opacity = 1 - p(t, 15.75, 0.22);
+    callWords.forEach((w, i) => { w.style.opacity = eo(p(t, 12.1 + i * 0.075, 0.12)); });
+
+    // dashboard
+    const dk = pop($('dash'), t, 8.3, 0.45, 50);
+    if (t >= 15.85) { $('dash').style.opacity = 1 - eio(p(t, 15.85, 0.3)); $('dash').style.transform = `translateY(${eio(p(t, 15.85, 0.35)) * 120}px)`; }
+    const s = scoreAt(t), [bn, bc] = band(s);
+    $('garc').setAttribute('d', s > 0 ? arc(s) : 'M0 0');
+    $('garc').setAttribute('stroke', bc);
+    $('gnum').textContent = s;
+    $('gband').textContent = bn; $('gband').setAttribute('fill', bc);
+    const note = t >= 13.55 ? 'Scam tactics on the call' : t >= 11.0 ? 'No scam talk yet:<br>capped at caution' : t >= 9.2 ? 'Normal banking' : '';
+    $('gnote').innerHTML = note;
+    const nStart = t >= 13.55 ? 13.55 : t >= 11.0 ? 11.0 : 9.2;
+    $('gnote').style.opacity = eo(p(t, nStart, 0.3));
+    $('gnote').style.color = t >= 13.55 ? '#FCA5A5' : t >= 11.0 ? '#FCD34D' : '#94A3B8';
+    // rows light up
+    [['r1', 8.5, '#22C55E'], ['r2', 10.5, '#F59E0B'], ['r3', 13.5, '#EF4444']].forEach(([id, st, col], i) => {
+      const r = $(id), k = p(t, st, 0.3), on = k > 0;
+      r.style.opacity = lerp(0.38, 1, eo(k));
+      r.style.borderColor = on ? col : '#334155';
+      r.style.transform = `scale(${1 + 0.035 * Math.sin(Math.PI * k)})`;
+      r.querySelector('.ic').style.background = on ? col + '33' : '#334155';
+      r.querySelector('.ic svg').style.stroke = on ? col : '#94A3B8';
+      const pts = r.querySelector('.pts'); pts.style.opacity = eo(k); pts.style.color = col;
+    });
+
+    // captions (scene 4)
+    const c1 = $('cap1'); pop(c1, t, 16.3, 0.4, 26); if (t >= 18.75) c1.style.opacity = 1 - p(t, 18.75, 0.25);
+    if (t < 16.3) c1.style.opacity = 0;
+    const c2 = $('cap2'); pop(c2, t, 19.5, 0.4, 26); if (t < 19.5) c2.style.opacity = 0;
+    const c3 = $('cap3'); pop(c3, t, 21.0, 0.4, 20); if (t < 21.0) c3.style.opacity = 0;
+    const fz = $('frozen'); pop(fz, t, 19.0, 0.35, -16, 0.92); if (t < 19.0) fz.style.opacity = 0;
+
+    // cursor: overlay button "Stop and get help" at (720,885) of 1920x1080
+    const cur = $('cursor'), rip = $('ripple');
+    const bx = L4.x + 12 + 720 / 1920 * (L4.w - 24), by = L4.y + 12 + 885 / 1080 * (L4.h - 24);
+    if (t >= 17.9 && t < 19.6) {
+      const mk = eio(p(t, 18.0, 0.85));
+      const x = lerp(bx + 300, bx - 4, mk), y = lerp(by + 330, by - 6, mk) - Math.sin(Math.PI * mk) * 60;
+      const press = t >= 18.95 && t < 19.12 ? 0.86 : 1;
+      cur.style.opacity = eo(p(t, 17.9, 0.2)) * (1 - p(t, 19.0, 0.06));
+      cur.style.transform = `translate(${x}px, ${y}px) scale(${press})`;
+    } else cur.style.opacity = 0;
+    const rk = p(t, 19.0, 0.5);
+    rip.style.left = bx + 'px'; rip.style.top = by + 'px';
+    rip.style.opacity = t >= 19.0 ? (1 - rk) * 0.9 : 0;
+    rip.style.transform = `scale(${0.3 + 1.6 * eo(rk)})`;
+  }
+
+  // ===== 5 sprint 24-28 =====
+  if (win($('s5'), t, 24.0, 28.0)) {
+    $('log').style.transform = `translateY(${-90 - (t - 24) * 70}px)`;
+    pop($('b1'), t, 24.0, 0.38, 40);
+    pop($('b2'), t, 24.5, 0.38, 40);
+    ['c1', 'c2', 'c3'].forEach((id, i) => {
+      const st = 25.0 + i * 0.5; pop($(id), t, st, 0.38, 40);
+      const n = $(id).querySelector('.num'); const to = +n.dataset.to;
+      n.textContent = Math.round(to * eo(p(t, st, 0.9)));
+    });
+  }
+
+  // ===== 6 results 28-34 =====
+  if (win($('s6'), t, 28.0, 34.0)) {
+    pop($('s6head'), t, 28.0, 0.35, 24);
+    ['k1', 'k2', 'k3', 'k4'].forEach((id, i) => pop($(id), t, 28.5 + i * 0.5, 0.42, 50, 0.94));
+  }
+
+  // ===== 7 outro 34-38 =====
+  if (win($('s7'), t, 34.0, 38.01, { outD: 0.001 })) {
+    drawShield($('sh7'), 0.18 + 0.82 * p(t, 34.0, 0.7));
+    pop($('s7title'), t, 34.5, 0.45, 40);
+    pop($('s7tag'), t, 35.0, 0.4, 30);
+    pop($('s7cta'), t, 35.5, 0.4, 24, 0.9);
+  }
+  $('fade').style.opacity = eio(p(t, 37.55, 0.45));
+}
+window.renderAt = renderAt;
+window.ready = (async () => {
+  await document.fonts.load('800 40px NotoDeva', 'कवच');
+  await document.fonts.load('900 40px Inter'); await document.fonts.load('800 40px "Inter Display"');
+  await document.fonts.load('400 20px "JetBrains Mono"');
+  await document.fonts.ready;
+  await Promise.all([...document.images].map((im) => im.decode().catch(() => {})));
+  // the page's load event (awaited by the renderer) already covers the iframe
+  renderAt(0);
+  return true;
+})();
+</script>
+</body>
+</html>

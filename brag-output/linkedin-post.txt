@@ -1,0 +1,31 @@
+"This is the CBI. Don't disconnect the call. Install AnyDesk."
+
+That's how most "digital arrest" scams begin. The scammer never touches your PC. They talk you into doing everything yourself: install a remote-access app, open net banking, read out the OTP.
+
+For the Snapdragon AI Build & Present Challenge, I spent 2 days building Kavach (कवच, "armour") solo: an offline AI scam shield for Windows PCs.
+
+It watches the 3 things every screen-sharing scam needs:
+🖥️ a remote-access app running (AnyDesk, TeamViewer, Quick Assist and more)
+🏦 a banking, UPI or OTP page on screen, read with on-device OCR
+📞 scam tactics in the call (authority, threat, secrecy, urgency, money-move), transcribed on-device with Whisper
+
+When they show up together, Kavach puts up a full-screen warning in Hindi and English, and one click freezes the scammer's remote session. I tested it with real AnyDesk controlled from my phone. The phone froze.
+
+What I'm proud of:
+✅ 10/10 scam scenarios caught, 0 false alarms across 10 normal ones (net banking, real IT support, news about scams)
+✅ ~2 s median from the scam phrase to the warning
+✅ All 6 models compiled for the Snapdragon Hexagon NPU with Qualcomm AI Hub. Speech recognition is ~6× faster than on a laptop CPU (117 ms vs 723 ms per 5 s of audio, AI Hub profile)
+✅ Nothing leaves the PC: no network calls, and no screenshots, text or audio on disk
+
+What I learned:
+• Tuning weights couldn't tell a scammer from a genuine IT helper on AnyDesk. One rule could: no alert without an actual scam tactic.
+• Test the scariest part first. The real AnyDesk test from my phone was the biggest risk in the whole demo.
+• A small test set, honestly labelled, is worth more than one that looks perfect.
+
+I didn't win, but I came out of it with a working product I'm proud of.
+
+Code in the comments 👇
+
+Has anyone in your family got a call like this?
+
+#OnDeviceAI #Snapdragon #CyberSecurity #Hackathon #BuildInPublic

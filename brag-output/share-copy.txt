@@ -1,0 +1,1 @@
+"This is the CBI. Don't disconnect the call. Install AnyDesk." I spent 2 days building Kavach, solo, for the Snapdragon AI Build & Present Challenge: an offline AI scam shield that sees the call, the remote session and the bank page together, and freezes the scammer with one click.
