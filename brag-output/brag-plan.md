@@ -26,8 +26,11 @@ solo, max 40 s, no screen recording, no names to tag.
 
 ## Angle
 
-Open on the scam, not on me. The viewer hears the call first, then sees Kavach catch it live, then learns
-one person built it in two days. The experience (solo sprint) is the reveal, and the numbers are the payoff.
+Open on the scam, not on me. The viewer hears the call first, then sees Kavach catch it live, then sees the
+build behind it (commits, tests, scenarios), and the numbers are the payoff.
+
+Revision 2 (user request): removed every "Built solo in 2 days" line (the reveal chip and the sprint headline)
+and the "Code in the comments ↓" button. No scene was cut; the timing and soundtrack are unchanged.
 
 ## Format
 
@@ -53,7 +56,7 @@ overridden by the user's request for an experience video).
 
 120 BPM, A minor, 4/4. One beat = 0.5 s = 15 frames; one bar = 2 s. Every cut lands on a bar line.
 Progression: drone (hook) → Am F → Am F C G (demo, rising) → Am stabs (alert) → drop on the click
-("freeze") → C G (relief) → Am F (sprint) → F C G (results) → F → C (outro, rings out).
+("freeze") → C G (relief) → Am F (the build) → F C G (results) → F → C (outro, rings out).
 Effects in key, under the music: ring pulses (E5/A5), impacts on bar lines, soft plucks (A5 C6 E6) as each
 signal lights, a click and an ice shimmer on "Stop and get help".
 
@@ -62,12 +65,12 @@ signal lights, a click and an ice shimmer on "Stop and get help".
 | # | Time | Scene | On screen | Sound |
 |---|---|---|---|---|
 | 1 | 0.0–4.0 | **Hook: the call** | Black. Pill "Unknown caller · 00:07" with a pulsing red dot. Huge lines word by word: "This is the CBI." (0.2) / "Don't disconnect the call." (1.2) / "Install AnyDesk." (2.2, red). Voice waveform at the bottom. | Low A drone, heartbeat kick, ring pulses in key, riser into 4.0 |
-| 2 | 4.0–8.0 | **Reveal** | Navy. Shield draws in. "Kavach" + "कवच". "An offline AI scam shield for Windows PCs". Pill: "Built solo in 2 days · Snapdragon AI Build & Present Challenge". | Impact at 4.0, Am → F, beat enters |
+| 2 | 4.0–8.0 | **Reveal** | Navy. Shield draws in. "Kavach" + "कवच". "An offline AI scam shield for Windows PCs". Pill: "Snapdragon AI Build & Present Challenge" (5.5). | Impact at 4.0, Am → F, beat enters |
 | 3 | 8.0–16.0 | **Live demo** | Heading "It watches all 3 parts of the scam". A laptop screen shows the real DEMO bank page; the dashboard below (gauge + 3 signal rows). 8.5: Screen signal (+45), gauge 0→45 QUIET. 10.5: "AnyDesk · session live" pill, Remote signal (+30), gauge →69 CAUTION ("No scam talk yet: capped at caution", the tactic gate), real caution toast at 11.0. 12.0: "On the call" bubble "This is the CBI. You are under digital arrest." 13.5: Call signal (+26), gauge →100 ALERT. | Full groove Am F C G, plucks on each signal, riser 13.5–14.5 |
 | 4 | 16.0–24.0 | **The warning + the freeze** | Background turns overlay red. The real full-screen warning fills the laptop screen. Caption "A full-screen warning, in Hindi and English" (16.3). 18.0: cursor glides to "Stop and get help", clicks at 19.0; hard cut to the real "You did the right thing" screen with an "AnyDesk paused" chip. Captions: "One click freezes the scammer's remote session" (19.5) / "Tested with real AnyDesk from my phone. The phone froze." (21.0) | Alert slam + Am stabs; on the click the drums drop for a beat with an ice shimmer; relief C → G |
-| 5 | 24.0–28.0 | **The sprint** | Real commit messages scroll as texture. "Built solo." / "In 2 days." Counters: 23 commits · 362 tests · 20 end-to-end scenarios. | Upbeat Am F, 16th hats, key ticks |
+| 5 | 24.0–28.0 | **The build** | Real commit messages scroll as texture. Centred counters pop in on the beat (24.0 / 24.5 / 25.0) and count up: 23 commits · 362 tests · 20 end-to-end scenarios. | Upbeat Am F, 16th hats, key ticks |
 | 6 | 28.0–34.0 | **Results** | 2×2 cards: 10/10 scam scenarios caught · 0 false alarms in 10 normal ones · ~2 s scam phrase → warning · 6× faster speech AI on the Snapdragon NPU vs CPU (footnote: Whisper, 117 vs 723 ms per 5 s of audio, AI Hub profile). | F C G, a tick per card on the beat |
-| 7 | 34.0–38.0 | **Outro** | Shield + "Kavach कवच". "Offline. On-device. Nothing leaves your PC." "Code in the comments ↓" | Impact, F → C rings out, fade |
+| 7 | 34.0–38.0 | **Outro** | Shield + "Kavach कवच". "Offline. On-device. Nothing leaves your PC." (centred vertically) | Impact, F → C rings out, fade |
 
 Durations: 4 + 4 + 8 + 8 + 4 + 6 + 4 = 38 s.
 
